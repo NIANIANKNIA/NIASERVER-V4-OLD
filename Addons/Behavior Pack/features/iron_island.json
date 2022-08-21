@@ -5,7 +5,7 @@
 			"identifier": "niaserver:iron_island"
 		},
 		"structure_name": "mystructure:iron_island",
-		"adjustment_radius": 8,
+		"adjustment_radius": 10,
 		"facing_direction": "random",
 		"constraints": {
 			"block_intersection": {
