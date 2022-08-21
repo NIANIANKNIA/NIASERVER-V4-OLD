@@ -1,0 +1,30 @@
+{
+	"format_version": "1.13.0",
+	"minecraft:ore_feature": {
+		"description": {
+			"identifier": "niaserver:air_bottle_feature"
+		},
+		"count": 128,
+		"replace_rules": [
+			{
+				"places_block": "minecraft:air",
+				"may_replace": [
+					"minecraft:stone",
+					"minecraft:sand",
+					"minecraft:coal_ore",
+					"minecraft:redstone_ore",
+					"minecraft:lapis_ore",
+					"minecraft:iron_ore",
+					"minecraft:gold_ore",
+					"minecraft:diamond_ore",
+					"minecraft:emerald_ore",
+					"minecraft:copper_ore",
+					"minecraft:snow_layer",
+					"minecraft:monster_egg",
+					"minecraft:infested_deepslate",
+					"minecraft:water"
+				]
+			}
+		]
+	}
+}

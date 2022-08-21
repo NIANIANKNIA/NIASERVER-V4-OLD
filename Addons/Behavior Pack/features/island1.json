@@ -1,0 +1,19 @@
+{
+	"format_version": "1.13.0",
+	"minecraft:structure_template_feature": {
+		"description": {
+			"identifier": "niaserver:island1"
+		},
+		"structure_name": "mystructure:island1",
+		"adjustment_radius": 4,
+		"facing_direction": "random",
+		"constraints": {
+			"unburied": {},
+			"block_intersection": {
+				"block_allowlist": [
+					"minecraft:air"
+				]
+			}
+		}
+	}
+}

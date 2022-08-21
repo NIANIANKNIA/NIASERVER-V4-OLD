@@ -1,0 +1,25 @@
+{
+	"format_version": "1.13.0",
+	"minecraft:ore_feature": {
+		"description": {
+			"identifier": "niaserver:air_top_feature"
+		},
+		"count": 128,
+		"replace_rules": [
+			{
+				"places_block": "minecraft:air",
+				"may_replace": [
+					"minecraft:stone",
+					"minecraft:gravel",
+					"minecraft:coal_ore",
+					"minecraft:iron_ore",
+					"minecraft:emerald_ore",
+					"minecraft:gold_ore",
+					"minecraft:water",
+					"minecraft:snow_layer",
+					"minecraft:monster_egg"
+				]
+			}
+		]
+	}
+}

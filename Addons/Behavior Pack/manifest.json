@@ -1,0 +1,18 @@
+{
+	"format_version": 2,
+	"header": {
+		"name": "[DEV]NIA V4.0",
+		"description": "仅仅用于NIA服务器的运行",
+		"min_engine_version": [1, 19, 0],
+		"uuid": "cab0bbe3-eb10-465e-b1de-b09facc076c8",
+		"version": [1, 0, 0]
+	},
+	"modules": [
+		{
+			"description": "NIANIANKNIA",
+			"type": "data",
+			"uuid": "7e41869f-82f7-40f5-87c0-4dcfbc61d91b",
+			"version": [1, 0, 0]
+		}
+	]
+}
