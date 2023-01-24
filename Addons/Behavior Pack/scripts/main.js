@@ -5,7 +5,7 @@
 //本脚本仅仅用于学习用途
 //严禁任何个人、组织严禁在未经授权的情况下使用本脚本盈利
 //脚本名称：NIA服务器V4运行核心脚本
-//脚本版本：v4.1.17（BETA）
+//脚本版本：v4.1.20（BETA）
 //脚本描述：
 //本脚本将在 https://docs.mcnia.top/ （NIA服务器官方文档站） 首发更新
 ////////////////////////////////////////////////////////////////////////////
@@ -775,11 +775,6 @@ function CaculatePos(playerName,cX,cY,cZ) {
 
 //对一些指令的检测
 world.events.beforeChat.subscribe(t => {
-    //对于自定义头衔的设计
-    if (t.sender.hasTag("op")) {
-        t.cancel = true;
-        Broadcast(`§c§l[管理] §r<${t.sender.nameTag}> ${t.message}`)
-    }
     //对于指令前缀"-"的检测以及相关权限的检测
     if (t.message.slice(0,1) == "-") {
         //取消有自定义指令前缀的消息输出
@@ -813,7 +808,8 @@ world.events.beforeChat.subscribe(t => {
                     AddScoreboard("actionbar","标题栏显示样式");
                     AddScoreboard("time","在线时间");
                     AddScoreboard("menu","§6==NIA服务器==");
-                    AddScoreboard("AnoxicTime","缺氧时间")
+                    AddScoreboard("AnoxicTime","缺氧时间");
+                    AddScoreboard("CDK","CDK数据");
                     Broadcast("§a===============================\n§c>> NIA V4初始化安装已完成！");
                     break;
                 case "-c":
@@ -825,10 +821,15 @@ world.events.beforeChat.subscribe(t => {
                     Tell("§c>> 注意本指令为调试指令，不要在正式生产环境中使用本指令！",t.sender.nameTag);
                     CaculatePos(t.sender.nameTag,CX,70,CZ);
                     break;
-                case "-":
-                    var Data = new DynamicPropertiesDefinition().defineString("str",256)
-                    world.setDynamicProperty(Data[0], "111")
-                    Tell(world.getDynamicProperty(Data[0]),player.nameTag)
+                case "-a":
+                    hasCommand = true;
+                    Tell("111",t.sender.nameTag)
+                    world.setDynamicProperty("a", true)
+                    Tell("222",t.sender.nameTag)
+                    if (world.getDynamicProperty("a")) {
+                        Tell("232",t.sender.nameTag)
+                    }
+                    Tell("333",t.sender.nameTag)
                     break;
             }
             if (!hasCommand) {
@@ -915,6 +916,12 @@ world.events.beforeChat.subscribe(t => {
             Tell(`§c>> 密码为§a${parseInt(((t.message.slice(1) * 12345) + 65432) / 9876 + 100000)}`,t.sender.nameTag);
         }
     }
+
+    //对于自定义头衔的设计
+    if (t.sender.hasTag("op")) {
+        t.cancel = true;
+        Broadcast(`§c§l[管理] §r<${t.sender.nameTag}> ${t.message}`)
+    }
 })
 
 
@@ -931,9 +938,12 @@ const guiAPI = {
         .button("返回主岛","textures/ui/backup_replace")
         .button("标题栏设置","textures/ui/automation_glyph_color")
         .button("商店系统","textures/ui/icon_blackfriday")
-        .button("玩家传送系统","textures/ui/icon_blackfriday")
-        .button("兑换码系统","textures/ui/icon_blackfriday")
-        .button("测试")
+        .button("玩家传送系统","textures/ui/dressing_room_skins")
+        .button("兑换码系统","textures/ui/gift_square")
+        .button("转账系统","textures/ui/icon_best3")
+        if (player.hasTag("op") && player.isOp()) {
+            MainForm.button("管理员面板","textures/ui/op")
+        }
         MainForm.show(player).then((response) => {
             switch (response.selection) {
                 case 0:
@@ -949,6 +959,16 @@ const guiAPI = {
                     this.ShopMain(player);
                     break;
                 case 4:
+                    this.TpaMain(player);
+                    break;
+                case 5:
+                    this.CDK(player);
+                    break;
+                case 6:
+                    this.Transfer(player);
+                    break;
+                case 7:
+                    this.CheckOP(player);
                     break;
             }
         });
@@ -1415,8 +1435,493 @@ const guiAPI = {
                 Tell("§e>> 标题栏设置更改成功！",player.nameTag)
             }
         })
-    }
+    },
 
+    TpaMain(player) {
+        const TpaMainForm = new ActionFormData()
+        .title("传送系统")
+        .body("§r§l===========================" + "\n§c欢迎使用传送系统！" + "\n§r§l===========================")
+        .button("开始传送")
+        .button("传送设置")
+        TpaMainForm.show(player).then(result => {
+            if (result.selection == 0) {
+                this.TpaSub(player)
+            } else if (result.selection == 1) {
+                this.TpaSetup(player)
+            }
+        })
+    },
+
+    TpaSub(player) {
+        let players = world.getPlayers()
+        let playerList = Array.from(players);
+        let playersName = []
+        for (let i = 0; i < playerList.length; i++) {
+            playersName.push(playerList[i].nameTag)
+        }
+
+        const TpaSubForm = new ModalFormData()
+            .title("传送系统")
+            .dropdown("请选择本次传送的模式：",["将自己传送至目标玩家","将目标玩家传送至自己这里"],0)
+            .dropdown("请选择要传送的玩家：",playersName,0)
+            TpaSubForm.show(player).then(result => {
+                if (result.formValues[0] == 0) {
+                    this.ApplyTpa1(playerList[result.formValues[1]],player)
+                } else if (result.formValues[0] == 1) {
+                    this.ApplyTpa2(playerList[result.formValues[1]],player)
+                }
+            })
+    },
+
+    ApplyTpa1(AcceptPlayer,ApplyPlayer) {
+        //检查对方是否在黑名单中
+        let BanList = [];
+        let ScoreBoards = world.scoreboard.getObjectives()
+        for (let i = 0; i < ScoreBoards.length; i++) {
+            if (ScoreBoards[i].id == "T:" + AcceptPlayer.nameTag) {
+                for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                    Broadcast(`${ScoreBoards[i].getParticipants()[j].displayName}`)
+                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName)
+                    break;
+                }
+                break;
+            }
+        }
+        if (AcceptPlayer.hasTag("BanTpa") || BanList.includes(ApplyPlayer.nameTag)) {
+            const ErrorTpaForm = new MessageFormData()
+                .title("§c§l传送申请异常提醒")
+                .body("§e玩家 §l§6" + AcceptPlayer.nameTag + " \n§r§e无法正常接收传送申请！\n可能是因为对方关闭了传送系统！")
+                .button1("§c退出传送系统")
+                .button2("§a返回传送系统")
+            ErrorTpaForm.show(ApplyPlayer).then(result => {
+                if (result.selection == 0) {
+                    this.TpaMain(ApplyPlayer)
+                }
+            })
+        } else {
+            const ApplyTpa1Form = new MessageFormData()
+                .title("§c§l传送申请")
+                .body("§e玩家 §l§6" + ApplyPlayer.nameTag + " \n§r§e申请传送到您这里！请问您是否同意呢？")
+                .button1("§c不同意")
+                .button2("§a同意")
+            ApplyTpa1Form.show(AcceptPlayer).then(result => {
+                if (result.selection == 1) {
+                    Tell(`§c>> 对方拒绝了您的传送申请！请尝试稍后重试！（请勿短时间内多次发起申请，否则可能被对方加入黑名单！）`,ApplyPlayer.nameTag)
+                } else if (result.selection == 0) {
+                    Tell(`§a>> 对方同意了您的申请，已把您传送过去！`,ApplyPlayer.nameTag)
+                    Tell(`§a>> 您已同意对方的传送申请！`,AcceptPlayer.nameTag)
+                    RunCmd(`tp "${ApplyPlayer.nameTag}" "${AcceptPlayer.nameTag}"`)
+                }
+            })
+        }
+    },
+
+    ApplyTpa2(AcceptPlayer,ApplyPlayer) {
+        //检查对方是否在黑名单中
+        let BanList = [];
+        let ScoreBoards = world.scoreboard.getObjectives()
+        for (let i = 0; i < ScoreBoards.length; i++) {
+            if (ScoreBoards[i].id == "T:" + AcceptPlayer.nameTag) {
+                for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName)
+                    break;
+                }
+                break;
+            }
+        }
+        if (AcceptPlayer.hasTag("BanTpa") || BanList.includes(ApplyPlayer.nameTag)) {
+            const ErrorTpaForm = new MessageFormData()
+                .title("§c§l传送申请异常提醒")
+                .body("§e玩家 §l§6" + AcceptPlayer.nameTag + " \n§r§e无法正常接收传送申请！\n可能是因为对方关闭了传送系统！")
+                .button1("§c退出传送系统")
+                .button2("§a返回传送系统")
+            ErrorTpaForm.show(ApplyPlayer).then(result => {
+                if (result.selection == 0) {
+                    this.TpaMain(ApplyPlayer)
+                }
+            })
+        } else {
+            const ApplyTpa2Form = new MessageFormData()
+                .title("§c§l传送申请")
+                .body("§e玩家 §l§6" + ApplyPlayer.nameTag + " \n§r§e申请将您传送到他那里！请问您是否同意呢？")
+                .button1("§c不同意")
+                .button2("§a同意")
+            ApplyTpa2Form.show(AcceptPlayer).then(result => {
+                if (result.selection == 1) {
+                    Tell(`§c>> 对方拒绝了您的传送申请！请尝试稍后重试！（请勿短时间内多次发起申请，否则可能被对方加入黑名单！）`,ApplyPlayer.nameTag)
+                } else if (result.selection == 0) {
+                    Tell(`§a>> 对方同意了您的申请，已把对方传送过来！`,ApplyPlayer.nameTag)
+                    Tell(`§a>> 您已同意对方的传送申请，已把您传送至对方的地方`,AcceptPlayer.nameTag)
+                    RunCmd(`tp "${AcceptPlayer.nameTag}" "${ApplyPlayer.nameTag}"`)
+                }
+            })
+        }
+    },
+
+    TpaSetup(player) {
+        let players = world.getPlayers()
+        let playerList = Array.from(players);
+        let playersName = ["请选择在线玩家后提交"]
+        for (let i = 0; i < playerList.length; i++) {
+            if (playerList[i].nameTag != player.nameTag) {
+                playersName.push(playerList[i].nameTag)
+            }
+        }
+
+        let HaveData = false;
+        let BanList = ["选择下拉列表玩家后提交"];
+        let ScoreBoards = world.scoreboard.getObjectives()
+        for (let i = 0; i < ScoreBoards.length; i++) {
+            if (ScoreBoards[i].id == "T:" + player.nameTag) {
+                for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName)
+                    HaveData = true;
+                    break;
+                }
+                break;
+            }
+        }
+        if (!HaveData) {
+            if (world.scoreboard.getObjective(`T:${player.nameTag}`) == null) {
+                world.scoreboard.addObjective(`T:${player.nameTag}`,`T:${player.nameTag}`);
+            }
+        }
+        const TpaSetupForm = new ModalFormData()
+            .title("传送系统设置")
+            if (player.hasTag("BanTpa")) {
+                TpaSetupForm.toggle("禁止别人向你发送传送申请",true)
+            } else {
+                TpaSetupForm.toggle("禁止别人向你发送传送申请",false)
+            }
+            TpaSetupForm.dropdown("添加传送黑名单",playersName,0)
+            TpaSetupForm.dropdown("删除传送黑名单",BanList,0)
+            TpaSetupForm.show(player).then(result => {
+                RunCmd(`tag "${player.nameTag}" remove BanTpa`);
+                if (result.formValues[0] == 1) {
+                    RunCmd(`tag "${player.nameTag}" add BanTpa`);
+                }
+                if (result.formValues[1] != 0) {
+                    Tell(`§c>> 已把玩家 ${playersName[result.formValues[1]]} 成功加入传送黑名单！`,player.nameTag)
+                    RunCmd(`scoreboard players set ${playersName[result.formValues[1]]} T:${player.nameTag} 0`)
+                }
+                if (result.formValues[2] != 0) {
+                    Tell(`§a>> 已把玩家 ${playersName[result.formValues[2]]} 成功从传送黑名单移除！`,player.nameTag)
+                    RunCmd(`scoreboard players reset ${playersName[result.formValues[2]]} T:${player.nameTag}`);
+                }
+
+            })
+    },
+
+    /////////////////////////////////////////////
+    //CDK格式：
+    //S!CDK@money#500
+    //I!CDK@apple#1$0
+    ////////////////////////////////////////////
+    CDK(player) {
+        const CDKForm = new ModalFormData()
+        .title("兑换码系统")
+        .dropdown("请选择CDK码类型",["计分板形式","物品形式"])
+        .textField("请输入CDK码","CDK码输入时请注意大小写！")
+        CDKForm.show(player).then(result => {
+            let CDK = result.formValues[1]
+            if (result.canceled) {
+                this.Main(player)
+            } else {
+                let HaveCDK = false;
+                let CDKD = false;
+                if (CDK == "") {
+                    Tell(`§c>> CDK码为空兑换失败`,player.nameTag)
+                } else if (result.formValues[0] == 0) {
+                    let ScoreBoards = world.scoreboard.getObjectives()
+                    for (let k = 0; k < ScoreBoards.length; k++) {
+                        if (ScoreBoards[k].id == "C:" + CDK) {
+                            for (let l = 0; l < ScoreBoards[k].getParticipants().length; l++) {
+                                if (ScoreBoards[k].getParticipants()[l].displayName == player.nameTag) {
+                                    CDKD = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    for (let i = 0; i < ScoreBoards.length; i++) {
+                        if (ScoreBoards[i].id == "CDK") {
+                            for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                                if (!CDKD && ScoreBoards[i].getParticipants()[j].displayName.slice(0,ScoreBoards[i].getParticipants()[j].displayName.indexOf("@")) == "S!" + CDK) {
+                                    RunCmd(`scoreboard players add @a[name="${player.nameTag}"] ${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("@") + 1,ScoreBoards[i].getParticipants()[j].displayName.indexOf("#"))} ${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("#") + 1)}`)
+                                    RunCmd(`scoreboard players add "${ScoreBoards[i].getParticipants()[j].displayName}" CDK -1`)
+                                    RunCmd(`scoreboard players set "${player.nameTag}" "C:${CDK}" 0`)
+                                    Tell("§a>> 兑换成功！",player.nameTag)
+                                    HaveCDK = true
+                                    if (GetScore("CDK",ScoreBoards[i].getParticipants()[j].displayName) == 1) {
+                                        RunCmd(`scoreboard players reset "${ScoreBoards[i].getParticipants()[j].displayName}" CDK`)
+                                        RunCmd(`scoreboard objectives remove "C:${CDK}"`)
+                                    }
+                                    break;
+                                } else if (CDKD) {
+                                    Tell("§c>> 您已兑换过此CDK!",player.nameTag)
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                } else if (result.formValues[0] == 1) {
+                    let ScoreBoards = world.scoreboard.getObjectives()
+                    for (let k = 0; k < ScoreBoards.length; k++) {
+                        if (ScoreBoards[k].id == "C:" + CDK) {
+                            for (let l = 0; l < ScoreBoards[k].getParticipants().length; l++) {
+                                if (ScoreBoards[k].getParticipants()[l].displayName == player.nameTag) {
+                                    CDKD = true;
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                    for (let i = 0; i < ScoreBoards.length; i++) {
+                        if (ScoreBoards[i].id == "CDK") {
+                            for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                                if (!CDKD && ScoreBoards[i].getParticipants()[j].displayName.slice(0,ScoreBoards[i].getParticipants()[j].displayName.indexOf("@")) == "I!" + CDK) {
+                                    RunCmd(`give @a[name="${player.nameTag}"] ${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("@") + 1,ScoreBoards[i].getParticipants()[j].displayName.indexOf("#"))} ${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("#") + 1,ScoreBoards[i].getParticipants()[j].displayName.indexOf("$"))} ${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("$") + 1)}`)
+                                    RunCmd(`scoreboard players add "${ScoreBoards[i].getParticipants()[j].displayName}" CDK -1`)
+                                    RunCmd(`scoreboard players set "${player.nameTag}" "C:${CDK}" 0`)
+                                    Tell("§a>> 兑换成功！",player.nameTag)
+                                    HaveCDK = true
+                                    if (GetScore("CDK",ScoreBoards[i].getParticipants()[j].displayName) == 1) {
+                                        RunCmd(`scoreboard players reset "${ScoreBoards[i].getParticipants()[j].displayName}" CDK`)
+                                        RunCmd(`scoreboard objectives remove "C:${CDK}"`)
+                                    }
+                                    break;
+                                } else if (CDKD) {
+                                    Tell("§c>> 您已兑换过此CDK!",player.nameTag)
+                                    break;
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (!HaveCDK && !CDKD) {
+                    Tell(`§c>> 无效的CDK兑换码，可能是输错、兑换码类型选择错误、兑换数量达到上限！您可以重新检查后再次尝试！具体情况请联系腐竹！`,player.nameTag)
+                }
+            }
+        })
+    },
+    /////////////////////////////////////////////
+
+    Transfer(player) {
+        const TransferForm = new ActionFormData()
+        .title("转账系统")
+        .body("§r§l===========================" + "\n§r§e欢迎使用转账系统！\n§c所有转账请在提前告知对方的前提下转账\n否则如果因为对方下线造成转账失败后果自负\n所有转账均不可逆，请慎重考虑后使用" + "\n§r§l===========================" + "\n§r§e能源币转账单笔10000以下不收取费用\n单笔转账超出10000货币的收取0.5%的服务费" + "\n氧气值转账每次将随机失去5-50%的氧气值\n请谨慎考虑！" + "\n§r§l===========================")
+        .button("能源币转账")
+        .button("氧气值转账")
+        TransferForm.show(player).then(result => {
+            if (result.selection == 0) {
+                this.TpaSub(player)
+            } else if (result.selection == 1) {
+                this.TpaSetup(player)
+            }
+        })
+    },
+
+    /////////////////////////////////////////////
+
+    CheckOP(player) {
+        const CheckOPForm = new ModalFormData()
+        .title("管理员身份验证")
+        .textField("请输入管理员面板授权码","不知道找腐竹索要！")
+        CheckOPForm.show(player).then(result => {
+            if (result.canceled) {
+                this.Main(player)
+            } else if (result.formValues[0] == "1") {
+                this.OpMain(player)
+            } else {
+                Tell("§c>> 未经授权的访问！您的本次访问已被服务器记录！",player.nameTag)
+            }
+        })
+    },
+
+    OpMain(player) {
+        const OpMainForm = new ActionFormData()
+        .title("管理员操作系统")
+        .body("§r§l===========================" + "\n§eHi！ " + player.nameTag + " 欢迎使用！" + "\n§r§l===========================")
+        .button("封禁玩家")
+        .button("解封玩家")
+        .button("添加CDK码")
+        .button("管理CDK码")
+        .button("调节玩家游戏数值")
+        .button("调节物价指数")
+        .button("§c紧急预案Ⅰ")
+        .show(player).then(result => {
+            switch (result.selection) {
+                case 2:
+                    this.AddCDKMain(player)
+                    break;
+                case 3:
+                    this.SetCDK(player)
+                    break;
+                case 4:
+                    this.OpSetData(player)
+                    break;
+            }
+        })
+    },
+
+    AddCDKMain(player) {
+        const AddCDKMainForm = new ActionFormData()
+            .title("请选择CDK的形式")
+            .body("请根据需求按照技术标准添加CDK\n请勿擅自添加CDK！\n请在仔细阅读技术规范后使用本系统！")
+            .button("计分板形式")
+            .button("物品形式")
+            .button("返回上一层界面")
+        AddCDKMainForm.show(player).then(result => {
+            switch (result.selection) {
+                case 0:
+                    this.AddCDKSub1(player)
+                    break;
+                case 1:
+                    this.AddCDKSub2(player)
+                    break;
+                case 2:
+                    this.OpMain(player)
+                    break;
+
+            }
+        })
+    },
+
+    AddCDKSub1(player) {
+        let ScoreNames = ["money","oxygen",]
+        const AddCDKSub1Form = new ModalFormData()
+            .title("添加计分板形式CDK")
+            .textField("请输入自定义CDK码","请勿重复、过长！")
+            .dropdown("请选择要改变分数的计分板",["自定义计分板名称","能源币(money)","氧气值(oxygen)"])
+            .textField("自定义计分板名称","请在上方选择自定义后填写")
+            .textField("增加目标计分板的值","只能输入阿拉伯数字！")
+            .textField("CDK可兑换的最大数量","只能输入阿拉伯数字！")
+        AddCDKSub1Form.show(player).then(result => {
+            //首先判断数据格式是否正确
+            if (result.formValues[0] == "" || result.formValues[3] == "" || result.formValues[4] == "") {
+                Tell("§c>> 错误的数据格式！请重新检查后再次填写！",player.nameTag)
+            } else if (result.formValues[1] == 0 && result.formValues[2] == "") {
+                Tell("§c>> 错误的数据格式！请重新检查后再次填写！",player.nameTag)
+            } else {
+                //判断CDK是否重复？
+                let ScoreBoards = world.scoreboard.getObjectives()
+                let HaveCDK = false;
+                for (let i = 0; i < ScoreBoards.length; i++) {
+                    if (ScoreBoards[i].id == "CDK") {
+                        for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                            if (ScoreBoards[i].getParticipants()[j].displayName.slice(2,ScoreBoards[i].getParticipants()[j].displayName.indexOf("@")) == result.formValues[0]) {
+                                HaveCDK = true;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+                if (HaveCDK) {
+                    Tell("§c>> 重复的CDK！请重新检查后再次填写！",player.nameTag)
+                } else if (result.formValues[1] != 0) {
+                    RunCmd(`scoreboard players set "S!${result.formValues[0]}@${ScoreNames[result.formValues[1] - 1]}#${parseInt(result.formValues[3])}" CDK ${parseInt(result.formValues[4])}`)
+                    world.scoreboard.addObjective(`C:${result.formValues[0]}`,`C:${result.formValues[0]}`);
+                    Tell("§a>> CDK码 " + result.formValues[0] + " 添加成功！校验值：S!" + result.formValues[0] + "@" + ScoreNames[result.formValues[1] - 1] + "#" + parseInt(result.formValues[3]) + " NUM: " + parseInt(result.formValues[4]),player.nameTag)
+                } else if (result.formValues[1] == 0) {
+                    RunCmd(`scoreboard players set "S!${result.formValues[0]}@${result.formValues[2]}#${parseInt(result.formValues[3])}" CDK ${parseInt(result.formValues[4])}`)
+                    world.scoreboard.addObjective(`C:${result.formValues[0]}`,`C:${result.formValues[0]}`);
+                    Tell("§a>> CDK码 " + result.formValues[0] + " 添加成功！校验值：S!" + result.formValues[0] + "@" + result.formValues[2] + "#" + parseInt(result.formValues[3]) + " NUM: " + parseInt(result.formValues[4]),player.nameTag)
+                }
+            }
+        })
+    },
+
+    AddCDKSub2(player) {
+        let ScoreNames = ["diamond","gold_ore",]
+        const AddCDKSub2Form = new ModalFormData()
+            .title("添加物品形式CDK")
+            .textField("请输入自定义CDK码","请勿重复、过长！")
+            .dropdown("请选择要赠与的物品ID",["自定义物品ID","钻石(diamond)","黄金锭(gold_ore)"])
+            .textField("自定义物品ID","请在上方选择自定义后填写")
+            .textField("给予数量","只能输入阿拉伯数字！","1")
+            .textField("给予物品的特殊值","只能输入阿拉伯数字！","0")
+            .textField("CDK可兑换的最大数量","只能输入阿拉伯数字！")
+        AddCDKSub2Form.show(player).then(result => {
+            //首先判断数据格式是否正确
+            if (result.formValues[0] == "" || result.formValues[3] == "" || result.formValues[4] == "" || result.formValues[5] == "") {
+                Tell("§c>> 错误的数据格式！请重新检查后再次填写！",player.nameTag)
+            } else if (result.formValues[1] == 0 && result.formValues[2] == "") {
+                Tell("§c>> 错误的数据格式！请重新检查后再次填写！",player.nameTag)
+            } else {
+                //判断CDK是否重复？
+                let ScoreBoards = world.scoreboard.getObjectives()
+                let HaveCDK = false;
+                for (let i = 0; i < ScoreBoards.length; i++) {
+                    if (ScoreBoards[i].id == "CDK") {
+                        for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                            if (ScoreBoards[i].getParticipants()[j].displayName.slice(2,ScoreBoards[i].getParticipants()[j].displayName.indexOf("@")) == result.formValues[0]) {
+                                HaveCDK = true;
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+                if (HaveCDK) {
+                    Tell("§c>> 重复的CDK！请重新检查后再次填写！",player.nameTag)
+                } else if (result.formValues[1] != 0) {
+                    RunCmd(`scoreboard players set "I!${result.formValues[0]}@${ScoreNames[result.formValues[1] - 1]}#${parseInt(result.formValues[3])}$${parseInt(result.formValues[4])}" CDK ${parseInt(result.formValues[5])}`)
+                    world.scoreboard.addObjective(`C:${result.formValues[0]}`,`C:${result.formValues[0]}`);
+                    Tell("§a>> CDK码 " + result.formValues[0] + " 添加成功！校验值：I!" + result.formValues[0] + "@" + ScoreNames[result.formValues[1] - 1] + "#" + parseInt(result.formValues[3]) + "$" + parseInt(result.formValues[4]) + " NUM: " + parseInt(result.formValues[5]),player.nameTag)
+                } else if (result.formValues[1] == 0) {
+                    RunCmd(`scoreboard players set "I!${result.formValues[0]}@${result.formValues[2]}#${parseInt(result.formValues[3])}$${parseInt(result.formValues[4])}" CDK ${parseInt(result.formValues[5])}`)
+                    world.scoreboard.addObjective(`C:${result.formValues[0]}`,`C:${result.formValues[0]}`);
+                    Tell("§a>> CDK码 " + result.formValues[0] + " 添加成功！校验值：I!" + result.formValues[0] + "@" + result.formValues[2] + "#" + parseInt(result.formValues[3]) + "$" + parseInt(result.formValues[4]) + " NUM: " + parseInt(result.formValues[5]),player.nameTag)
+                }
+            }
+        })
+    },
+
+    SetCDK(player) {
+        const SetCDKForm = new ActionFormData()
+            .title("设置CDK码")
+            .body("www")
+            .button("§c返回上一层")
+            let ScoreBoards = world.scoreboard.getObjectives()
+            for (let i = 0; i < ScoreBoards.length; i++) {
+                if (ScoreBoards[i].id == "CDK") {
+                    for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                        if (ScoreBoards[i].getParticipants()[j].displayName.slice(0,1) == "S") {
+                            SetCDKForm.button(`§c[计分板形式] CDK:§r§l${ScoreBoards[i].getParticipants()[j].displayName.slice(2,ScoreBoards[i].getParticipants()[j].displayName.indexOf("@"))}\n§r§c计分板：§r${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("@") + 1,ScoreBoards[i].getParticipants()[j].displayName.indexOf("#"))} §c增加数值：§r${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("#") + 1)} §c余量：§r${GetScore("CDK",ScoreBoards[i].getParticipants()[j].displayName)}`)
+                        } else if (ScoreBoards[i].getParticipants()[j].displayName.slice(0,1) == "I") {
+                            SetCDKForm.button(`§c[物品形式] CDK:§r§l${ScoreBoards[i].getParticipants()[j].displayName.slice(2,ScoreBoards[i].getParticipants()[j].displayName.indexOf("@"))}\n§r§c物品：§r${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("@") + 1,ScoreBoards[i].getParticipants()[j].displayName.indexOf("#"))} §c数量：§r${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("#") + 1,ScoreBoards[i].getParticipants()[j].displayName.indexOf("$"))} §c特殊值：§r${ScoreBoards[i].getParticipants()[j].displayName.slice(ScoreBoards[i].getParticipants()[j].displayName.indexOf("$") + 1)} §c余量：§r${GetScore("CDK",ScoreBoards[i].getParticipants()[j].displayName)}`)
+                        }
+                    }
+                    break;
+                }
+            }
+        SetCDKForm.show(player).then(result => {
+            if (result.selection == 0) {
+                this.OpMain(player)
+            } else {
+                this.SetCDKSub(player,ScoreBoards[i].getParticipants()[j].displayName)
+            }
+        })
+    },
+
+    SetCDKSub(player,CDKData) {
+        const SetCDKSubForm = new ActionFormData()
+        SetCDKSubForm.title("修改CDK")
+        SetCDKSubForm.body("已创建的CDK不支持更改CDK码\n如果想要更改CDK码请删除该CDK后再次创建！")
+        SetCDKSubForm.button("返回上一级页面")
+        SetCDKSubForm.button("编辑CDK信息")
+        SetCDKSubForm.button("§c删除CDK")
+
+    },
+
+    OpSetData(player) {
+        
+    }
 }
 
 //对于钟表使用的检测
@@ -1457,34 +1962,34 @@ world.events.tick.subscribe(t => {
         }
         for (let i = 0; i < playerList.length; i++) {
             if (GetScore("oxygen",playerList[i].nameTag) <= 0) {
-                RunCmd(`scoreboard players add @a[name="${playerList[i].name}"] AnoxicTime 1`)
+                RunCmd(`scoreboard players add @a[name="${playerList[i].nameTag}"] AnoxicTime 1`)
             } else {
-                RunCmd(`scoreboard players set @a[name="${playerList[i].name}"] AnoxicTime 0`)
+                RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] AnoxicTime 0`)
             }
             if (GetScore("AnoxicTime",playerList[i].nameTag) == 1) {
-                RunCmd(`title "${playerList[i].name}" title §c您已缺氧！`)
-                RunCmd(`title "${playerList[i].name}" subtitle §7请及时补充氧气！`)
+                RunCmd(`title "${playerList[i].nameTag}" title §c您已缺氧！`)
+                RunCmd(`title "${playerList[i].nameTag}" subtitle §7请及时补充氧气！`)
                 Tell("§c>> 您已进入缺氧状态！请及时补充氧气，否则会导致死亡！5秒后系统将自动打开氧气购买界面！",playerList[i].nameTag)
             }
             if (GetScore("AnoxicTime",playerList[i].nameTag) == 6) {
                 guiAPI.OxygenBuy(playerList[i])
             }
             if (GetScore("oxygen",playerList[i].nameTag) <= 200) {
-                RunCmd(`effect "${playerList[i].name}" slowness 15 0`)
-                RunCmd(`effect "${playerList[i].name}" weakness 15 2`)
+                RunCmd(`effect "${playerList[i].nameTag}" slowness 15 0`)
+                RunCmd(`effect "${playerList[i].nameTag}" weakness 15 2`)
             }
             if (GetScore("AnoxicTime",playerList[i].nameTag) >= 60) {
-                RunCmd(`effect "${playerList[i].name}" blindness 15 0`)
-                RunCmd(`effect "${playerList[i].name}" mining_fatigue 15 2`)
-                RunCmd(`effect "${playerList[i].name}" nausea 15 0`)
+                RunCmd(`effect "${playerList[i].nameTag}" blindness 15 0`)
+                RunCmd(`effect "${playerList[i].nameTag}" mining_fatigue 15 2`)
+                RunCmd(`effect "${playerList[i].nameTag}" nausea 15 0`)
             }
             //缺氧达到一定时间后直接进行死亡程序
             if (GetScore("AnoxicTime",playerList[i].nameTag) >= 240) {
-                RunCmd(`kill "${playerList[i].name}"`)
+                RunCmd(`kill "${playerList[i].nameTag}"`)
                 Tell("§c>> 我们很遗憾的通知您，由于您缺氧过长时间，昏倒在家中...幸亏您被巡逻机器人及时发现并送到了医院，才救回一条命...",playerList[i].nameTag)
                 RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] oxygen 200`)
-                RunCmd(`scoreboard players set @a[name="${playerList[i].name}"] AnoxicTime 0`)
-                RunCmd(`scoreboard players add @a[name="${playerList[i].name}"] money -50`)
+                RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] AnoxicTime 0`)
+                RunCmd(`scoreboard players add @a[name="${playerList[i].nameTag}"] money -50`)
                 Tell("§r======================\n§cNIA服务器医院 账单§r\n======================§c\n氧气费用 --- 20 能源币\n诊疗费用 --- 20 能源币\n转运费用 --- 10 能源币\n合计费用 --- 50 能源币§r\n======================",playerList[i].nameTag)
                 Tell("§r===============================\n§cNIA服务器自动扣费通知§r\n===============================§c\n50 能源币 已自动从您账户扣除\n如果您发现账户余额为负请及时补齐\n否则可能影响您的信誉值！§r\n===============================",playerList[i].nameTag)
             }
@@ -1669,7 +2174,7 @@ world.events.tick.subscribe(t => {
             if (GetScore("AnoxicTime",playerList[i].nameTag) > 0) {
                 titleActionbar = titleActionbar + "§r\n§c§l⚠警告！您已经进入缺氧状态 " + GetScore("AnoxicTime",playerList[i].nameTag) + " 秒，请及时补充氧气否则将会死亡！"
             }
-            RunCmd(`title @a[name=${playerList[i].name}] actionbar ${titleActionbar}`)
+            RunCmd(`title @a[name=${playerList[i].nameTag}] actionbar ${titleActionbar}`)
         }
     }
 })
