@@ -1,6 +1,7 @@
 import {world} from '@minecraft/server';
 import {ActionFormData,ModalFormData,MessageFormData} from '@minecraft/server-ui'
 import {Tell,RunCmd,GetScore} from './customFunction.js'
+import {OxygenGUI} from './oxygen.js'
 ///////////////////////////////////////////////////////////////
 //只能修改
 ///////////////////////////////////////////////////////////////
