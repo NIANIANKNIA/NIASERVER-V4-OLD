@@ -5,571 +5,23 @@
 //本脚本仅仅用于学习用途
 //严禁任何个人、组织严禁在未经授权的情况下使用本脚本盈利
 //脚本名称：NIA服务器V4运行核心脚本
-//脚本版本：v4.1.20（BETA）
-//脚本描述：
-//本脚本将在 https://docs.mcnia.top/ （NIA服务器官方文档站） 首发更新
+//脚本版本：v4.2.4（BETA）
 ////////////////////////////////////////////////////////////////////////////
 
 
-import {world,DynamicPropertiesDefinition} from '@minecraft/server';
+import {world,BlockLocation,Block, Player, EffectType,Scoreboard,Vector} from '@minecraft/server';
 import {ActionFormData,ModalFormData,MessageFormData} from '@minecraft/server-ui'
+import {ShopGUI} from './shop.js'
+// import './shop.js'
+import {Broadcast,Tell,RunCmd,AddScoreboard,GetScore,getNumberInNormalDistribution} from './customFunction.js'
+import {Test} from '@minecraft/server-gametest'
 
 //定义一些常数
 const R = 1000;  //空岛间距/初始半径
-const CX = 0;
-const CY = 50;
-const CZ = 0
-
-
-
-
-//氧气兑换码CDK
-const OxygenCDK = [
-    "NIAV4-2023",
-    ""
-]
-
-//商店售卖数据
-const SellData = [
-    {
-        "name": "一些免费赠送的东西",
-        "description": "无限次免费购买（",
-        "image": "textures/ui/gift_square.png",
-        "content": [
-            {
-            "name": "钟表",
-            "type": "minecraft:clock",
-            "price": 50,
-            "discount": 0,
-            "data": 0,
-            "image": "textures/items/clock_item"
-            }
-        ]
-    },
-    {
-    "name": "其他的杂项方块",
-    "description": "在这里购买其他杂项方块",
-    "image": "textures/blocks/grass_side_carried",
-    "content": [
-        {
-            "name": "泥土方块",
-            "type": "minecraft:dirt",
-            "price": 50,
-            "discount": 0.8,
-            "data": 0,
-            "image": "textures/blocks/dirt"
-        },
-        {
-            "name": "草方块",
-            "type": "minecraft:grass",
-            "price": 150,
-            "discount": 0.8,
-            "data": 0,
-            "image": "textures/blocks/grass_side_carried"
-        },
-        {
-            "name": "沙砾",
-            "type": "minecraft:gravel",
-            "price": 50,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/blocks/gravel"
-        },
-        {
-            "name": "沙子",
-            "type": "minecraft:sand",
-            "price": 50,
-            "discount": 0.8,
-            "data": 0,
-            "image": "textures/blocks/sand"
-        },
-        {
-            "name": "基岩方块",
-            "type": "minecraft:bedrock",
-            "price": 100000000,
-            "discount": 0.5,
-            "data": 0,
-            "image": "textures/blocks/bedrock"
-        }
-    ]
-    },
-    {
-    "name": "各种木头相关方块",
-    "description": "在这里购买木头相关方块",
-    "image": "textures/blocks/log_oak",
-    "content": [
-        {
-            "name": "橡木",
-            "type": "minecraft:log",
-            "price": 150,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/blocks/log_oak"
-        },
-        {
-            "name": "云杉木",
-            "type": "minecraft:log",
-            "price": 150,
-            "discount": 1,
-            "data": 1,
-            "image": "textures/blocks/log_spruce"
-        },
-        {
-            "name": "白桦木",
-            "type": "minecraft:log",
-            "price": 150,
-            "discount": 1,
-            "data": 2,
-            "image": "textures/blocks/log_birch"
-        },
-        {
-            "name": "从林木",
-            "type": "minecraft:log",
-            "price": 150,
-            "discount": 1,
-            "data": 3,
-            "image": "textures/blocks/log_jungle"
-        },
-        {
-            "name": "金合欢木",
-            "type": "minecraft:log2",
-            "price": 150,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/blocks/log_acacia"
-        },
-        {
-            "name": "深色像木",
-            "type": "minecraft:log2",
-            "price": 150,
-            "discount": 1,
-            "data": 1,
-            "image": "textures/blocks/log_big_oak"
-        }
-    ]
-    },
-    {
-    "name": "各种陶瓦方块",
-    "description": "在这里购买陶瓦相关方块",
-    "image": "textures/blocks/hardened_clay",
-    "content": [
-        {
-            "name": "陶瓦",
-            "type": "minecraft:hardened_clay",
-            "price": 100,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/blocks/hardened_clay"
-        },
-        {
-            "name": "橙色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 1,
-            "image": "textures/blocks/hardened_clay_stained_orange"
-        },
-        {
-            "name": "品红色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 2,
-            "image": "textures/blocks/hardened_clay_stained_magenta"
-        },
-        {
-            "name": "淡蓝色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 3,
-            "image": "textures/blocks/hardened_clay_stained_light_blue"
-        },
-        {
-            "name": "黄色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 4,
-            "image": "textures/blocks/hardened_clay_stained_yellow"
-        },
-        {
-            "name": "黄绿色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 5,
-            "image": "textures/blocks/hardened_clay_stained_lime"
-        },
-        {
-            "name": "粉红色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 6,
-            "image": "textures/blocks/hardened_clay_stained_pink"
-        },
-        {
-            "name": "灰色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 7,
-            "image": "textures/blocks/hardened_clay_stained_gray"
-        },
-        {
-            "name": "淡灰色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 8,
-            "image": "textures/blocks/hardened_clay_stained_silver"
-        },
-        {
-            "name": "青色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 9,
-            "image": "textures/blocks/hardened_clay_stained_cyan"
-        },
-        {
-            "name": "紫色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 10,
-            "image": "textures/blocks/hardened_clay_stained_purple"
-        },
-        {
-            "name": "蓝色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 11,
-            "image": "textures/blocks/hardened_clay_stained_blue"
-        },
-        {
-            "name": "棕色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 12,
-            "image": "textures/blocks/hardened_clay_stained_brown"
-        },
-        {
-            "name": "绿色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 13,
-            "image": "textures/blocks/hardened_clay_stained_green"
-        },
-        {
-            "name": "红色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 14,
-            "image": "textures/blocks/hardened_clay_stained_red"
-        },
-        {
-            "name": "黑色陶瓦",
-            "type": "minecraft:stained_hardened_clay",
-            "price": 120,
-            "discount": 1,
-            "data": 15,
-            "image": "textures/blocks/hardened_clay_stained_black"
-        }
-    ]
-    },
-    {
-    "name": "各种石头相关方块",
-    "description": "在这里购买石头相关方块",
-    "image": "textures/blocks/stone",
-    "content": [
-        {
-            "name": "石头",
-            "type": "minecraft:stone",
-            "price": 80,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/blocks/stone"
-        },
-        {
-            "name": "花岗岩",
-            "type": "minecraft:stone",
-            "price": 80,
-            "discount": 1,
-            "data": 1,
-            "image": "textures/blocks/stone_granite"
-        },
-        {
-            "name": "磨制花岗岩",
-            "type": "minecraft:stone",
-            "price": 100,
-            "discount": 1,
-            "data": 2,
-            "image": "textures/blocks/stone_granite_smooth"
-        },
-        {
-            "name": "闪长岩",
-            "type": "minecraft:stone",
-            "price": 80,
-            "discount": 1,
-            "data": 3,
-            "image": "textures/blocks/stone_diorite"
-        },
-        {
-            "name": "磨制闪长岩",
-            "type": "minecraft:stone",
-            "price": 100,
-            "discount": 1,
-            "data": 4,
-            "image": "textures/blocks/stone_diorite_smooth"
-        },
-        {
-            "name": "安山岩",
-            "type": "minecraft:stone",
-            "price": 80,
-            "discount": 1,
-            "data": 5,
-            "image": "textures/blocks/stone_andesite"
-        },
-        {
-            "name": "磨制安山岩",
-            "type": "minecraft:stone",
-            "price": 100,
-            "discount": 1,
-            "data": 6,
-            "image": "textures/blocks/stone_andesite_smooth"
-        }
-    ]
-    },
-    {
-    "name": "红石相关物品",
-    "description": "在这里购买红石相关的物品",
-    "image": "textures/blocks/redstone_torch_on",
-    "content": [
-        {
-            "name": "漏斗",
-            "type": "minecraft:hopper",
-            "price": 2000,
-            "discount": 0.95,
-            "data": 0,
-            "image": "textures/items/hopper"
-        },
-        {
-            "name": "活塞",
-            "type": "minecraft:piston",
-            "price": 500,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/blocks/piston_side"
-        },
-        {
-            "name": "粘液球",
-            "type": "minecraft:slime_ball",
-            "price": 100,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/items/slimeball"
-        },
-        {
-            "name": "红石中继器",
-            "type": "minecraft:repeater",
-            "price": 1000,
-            "discount": 0.6,
-            "data": 0,
-            "image": "textures/items/repeater"
-        },
-        {
-            "name": "红石比较器",
-            "type": "minecraft:comparator",
-            "price": 1000,
-            "discount": 0.6,
-            "data": 0,
-            "image": "textures/items/comparator"
-        },
-        {
-            "name": "发射器",
-            "type": "minecraft:dispenser",
-            "price": 1000,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/blocks/dispenser_front_horizontal"
-        },
-        {
-            "name": "投掷器",
-            "type": "minecraft:dropper",
-            "price": 600,
-            "discount": 1,
-            "data": 0,
-            "image": "textures/blocks/dropper_front_horizontal"
-        }
-    ]
-    }
-]
-
-//商店回收数据
-const RecycleData = [
-    {
-        "name": "矿物回收",
-        "description": "在这里回收矿物",
-        "image": "textures/items/diamond",
-        "content": [
-            {
-                "name": "煤炭",
-                "type": "minecraft:coal",
-                "price": 100,
-                "data": 0,
-                "image": "textures/items/coal",
-                "lim": true,
-                "limnum": 32
-            },
-            {
-                "name": "红石",
-                "type": "minecraft:redstone",
-                "price": 150,
-                "data": 0,
-                "image": "textures/items/redstone_dust",
-                "lim": false,
-                "limnum": 0
-            },
-            {
-                "name": "青金石",
-                "type": "minecraft:lapis_lazuli",
-                "price":  400,
-                "data": 0,
-                "image": "textures/items/dye_powder_blue",
-                "lim": false,
-                "limnum": 0
-            },
-            {
-                "name": "铁锭",
-                "type": "minecraft:iron_ingot",
-                "price":  450,
-                "data": 0,
-                "image": "textures/items/iron_ingot",
-                "lim": false,
-                "limnum": 0
-            },
-            {
-                "name": "黄金锭",
-                "type": "minecraft:gold_ingot",
-                "price": 500,
-                "data": 0,
-                "image": "textures/items/gold_ingot",
-                "lim": true,
-                "limnum": 32
-            },
-            {
-                "name": "绿宝石",
-                "type": "minecraft:emerald",
-                "price": 800,
-                "data": 0,
-                "image": "textures/items/emerald",
-                "lim": false,
-                "limnum": 0
-            },
-            {
-                "name": "钻石",
-                "type": "minecraft:diamond",
-                "price": 1000,
-                "data": 0,
-                "image": "textures/items/diamond",
-                "lim": false,
-                "limnum": 0
-            },
-            {
-                "name": "下界合金锭",
-                "type": "minecraft:netherite_ingot",
-                "price": 2000,
-                "data": 0,
-                "image": "textures/items/netherite_ingot",
-                "lim": false,
-                "limnum": 0
-            }
-        ]
-    },
-    {
-        "name": "战利品回收",
-        "description": "在这里回收战利品",
-        "image": "textures/items/end_crystal",
-        "content": [
-            {
-                "name": "鞘翅",
-                "type": "minecraft:elytra",
-                "price": 50000,
-                "data": -1,
-                "image": "textures/items/elytra",
-                "lim": false,
-                "limnum": 0
-            },
-            {
-                "name": "龙头",
-                "type": "minecraft:skull",
-                "price": 50000,
-                "data": -1,
-                "image": "",
-                "lim": false,
-                "limnum": 0
-            }
-        ]
-    },
-    {
-        "name": "部分方块回收",
-        "description": "在这里回收一些方块",
-        "image": "textures/blocks/grass_side_carried",
-        "content": [
-            {
-                "name": "草方块",
-                "type": "minecraft:grass",
-                "price": 100,
-                "data": 0,
-                "image": "textures/blocks/grass_side_carried",
-                "lim": true,
-                "limnum": 10
-            },
-            {
-                "name": "沙砾",
-                "type": "minecraft:gravel",
-                "price": 10,
-                "data": -1,
-                "image": "textures/blocks/gravel",
-                "lim": true,
-                "limnum": 64
-            },
-            {
-                "name": "沙子",
-                "type": "minecraft:sand",
-                "price": 10,
-                "data": -1,
-                "image": "textures/blocks/sand",
-                "lim": true,
-                "limnum": 64
-            },
-            {
-                "name": "陶瓦",
-                "type": "minecraft:hardened_clay",
-                "price": 50,
-                "data": -1,
-                "image": "textures/blocks/hardened_clay",
-                "lim": true,
-                "limnum": 64
-            },
-            {
-                "name": "基岩",
-                "type": "minecraft:bedrock",
-                "price": 0,
-                "data": -1,
-                "image": "textures/blocks/bedrock",
-                "lim": false,
-                "limnum": 0
-            }
-        ]
-    }
-]
+const CX = 402;
+const CY = 100;
+const CZ = 547
+let posData = {}
 
 //呼吸装备等级
 const equLevelData = {
@@ -601,13 +53,13 @@ const equLevelData = {
         "name": "中级呼吸装备Ⅱ",
         "max": 6000,
         "consume": 17,
-        "price": 700
+        "price": 1000
     },
     "5": {
         "name": "中级呼吸装备Ⅲ",
         "max": 6000,
         "consume": 16,
-        "price": 1000
+        "price": 1200
     },
     "6": {
         "name": "高级呼吸装备Ⅰ",
@@ -637,13 +89,13 @@ const equLevelData = {
         "name": "X级呼吸装备Ⅱ",
         "max": 8000,
         "consume": 13,
-        "price": 7000
+        "price": 8000
     },
     "11": {
         "name": "X级呼吸装备Ⅲ",
         "max": 9000,
         "consume": 12,
-        "price": 9000
+        "price": 10000
     },
     "12": {
         "name": "X级呼吸装备Ⅳ",
@@ -683,64 +135,105 @@ const equLevelData = {
     }
 }
 
-//一些自定义函数的注册
-
-/**
- * 将Msg消息广播至整个游戏
- * @param {string} Msg
- */
-function Broadcast(Msg) {
-    world.getDimension("overworld").runCommandAsync(`tellraw @a {\"rawtext\":[{\"text\":\"${Msg}\"}]}`);
-}
-
-/**
- * 将Msg消息发送至名为PlayerName的玩家
- * @param {string} Msg
- * @param {string} PlayerName
- */
-function Tell(Msg,PlayerName) {
-    world.getDimension("overworld").runCommandAsync(`tellraw @a[name="${PlayerName}"] {\"rawtext\":[{\"text\":\"${Msg}\"}]}`);
-}
-
-/**
- * 运行指令
- * @param {string} Cmd
- */
-function RunCmd(Cmd) {
-    world.getDimension("overworld").runCommandAsync(`${Cmd}`);
-}
-
-/**
- * 将名为showName的scoreboardName计分板添加至游戏
- * @param {string} scoreboardName
- * @param {string} showName
- */
-function AddScoreboard(scoreboardName,showName) {
-    if (world.scoreboard.getObjective(scoreboardName) == null) {
-        world.scoreboard.addObjective(scoreboardName,showName);
-        Broadcast(`§e>> 计分板${scoreboardName}已被添加！`)
-    } else {
-        Broadcast(`§c>> 添加错误，计分板${scoreboardName}已存在！`)
+//空岛数据
+const IslandData = {
+    "mystructure:forest" : {
+        "name": "丛林岛",
+        "pos" : [10,16,8],
+        "description": "丛林风格的空岛，拥有较大的空间以及资源，岛上甚至还有两只羊！是萌新开始空岛生存的不二之选！\n作者@lonely"
+    },
+    "mystructure:island1" : {
+        "name" : "多种群落小岛",
+        "pos": [8,15,7],
+        "description": "多种群落杂糅在一起的一个小岛，空间较为紧凑，同样没有奖励箱，但也是很美观的一个小岛\n作者@lonely"
+    },
+    "mystructure:bamboo" : {
+        "name" : "竹游",
+        "pos": [4,9,6],
+        "description": "竹园小岛，遍布竹子，有一个小亭子，溪流，场景十分安详！\n作者@mitulong"
+    },
+    "mystructure:catcoffee" : {
+        "name" : "猫猫咖啡厅",
+        "pos": [8,10,3],
+        "description": "一个猫猫样式的屋子！猛男生存必备...作者这样说道...\n作者@Samcrybut"
+    },
+    "mystructure:ore" : {
+        "name" : "矿工最爱",
+        "pos": [5,8,6],
+        "description": "一个“破败的”小岛，布满蜘蛛网，但是有奖励箱子，甚至还有一个村民蛋？\n作者@AiLaZuiKeAi"
+    },
+    "mystructure:island2" : {
+        "name" : "“破败”小岛",
+        "pos": [7,10,7],
+        "description": "一个“破败的”小岛，布满蜘蛛网，但是有奖励箱子，甚至还有一个村民蛋？\n作者@JunFish2722"
+    },
+    "mystructure:hell1" : {
+        "name": "地狱小岛",
+        "pos" : [7,10,6],
+        "description": "下界风格的小空岛，资源比较匮乏，生存难度较高，适合以下界为主建筑风格的玩家\n作者@lonely"
+    },
+    "mystructure:poorisland" : {
+        "name" : "石头岛",
+        "pos": [8,8,7],
+        "description": "一个主体由石头构成的岛，资源比较贫瘠，可能在上面生存比较困难吧。\n作者@JunFish2722"
+    },
+    "mystructure:bottle" : {
+        "name" : "瓶子岛",
+        "pos": [5,4,5],
+        "description": "一个小小的玻璃瓶里承载了小岛的全部物质~\n作者@NIANIANKNIA"
     }
 }
 
-function GetScore(scoreboardName,targets) {
-    let Participants = world.scoreboard.getObjective(scoreboardName).getParticipants();
-    let hasResult = false;
-    for (let i = 0; i < Participants.length; i++) {
-        if (Participants[i].displayName == targets) {
-            return world.scoreboard.getObjective(scoreboardName).getScore(Participants[i]);
+
+
+/**
+ * 检查有没有要创建空岛的玩家
+ */
+function CheckCringPlayer() {
+    let players = world.getPlayers()
+    let playerList = Array.from(players);
+    for (let i = 0; i < playerList.length; i++) {
+        if (playerList[i].hasTag("CringIsland") && GetScore("c_time",playerList[i].nameTag) == 10) {
+            //计算相关坐标，传送
+            let Tags = playerList[i].getTags()
+            let StructureName = ""
+            let k = 1
+            for (let j = 0; j < Tags.length; j++) {
+                if (Tags[j].slice(0,6) == "ISLAND") {
+                    for (let structure in IslandData) {
+                        if (k == parseInt(Tags[j].slice(6))) {
+                            StructureName = structure
+                            break
+                        }
+                        k++
+                    }
+                }
+            }
+            CalculatePos(playerList[i].nameTag,CX,CY,CZ,IslandData[StructureName].pos[0],IslandData[StructureName].pos[1],IslandData[StructureName].pos[2])
+        }
+        if (playerList[i].hasTag("CringIsland") && GetScore("c_time",playerList[i].nameTag) == 190) {
+            //计算相关坐标，传送
+            let Tags = playerList[i].getTags()
+            let StructureName = ""
+            let k = 1
+            for (let j = 0; j < Tags.length; j++) {
+                if (Tags[j].slice(0,6) == "ISLAND") {
+                    for (let structure in IslandData) {
+                        if (k == parseInt(Tags[j].slice(6))) {
+                            StructureName = structure
+                            break
+                        }
+                        k++
+                    }
+                }
+            }
+            let POSDATA = CalculatePos(playerList[i].nameTag,CX,CY,CZ)
+            SpawnIsland(playerList[i].nameTag,POSDATA[0],CY,POSDATA[1],StructureName,IslandData[StructureName].pos[0],IslandData[StructureName].pos[1],IslandData[StructureName].pos[2])
         }
     }
-    if(!hasResult) {
-        return false;
-    }
 }
 
-/**
- * 根据空岛编号计算相关空岛坐标并生成空岛
- */
-function CaculatePos(playerName,cX,cY,cZ) {
+function CalculatePos(playerName,cX,cY,cZ,dX,dY,dZ) {
     let Participants = world.scoreboard.getObjective("IslandData").getParticipants()
     for (let i = 0; i < Participants.length; i++) {
         if (Participants[i].displayName == "num") {
@@ -750,23 +243,71 @@ function CaculatePos(playerName,cX,cY,cZ) {
             do {
                 r = r + R;
                 AllNum = parseInt(2 * Math.PI * r / R) + AllNum;
-                //调试语句
-                if (num <= AllNum){
-                    Broadcast(`§7AllNum：${AllNum} 此时的半径：${r}`);
-                }
+                // 调试语句
+                // if (num <= AllNum){
+                //     Broadcast(`§7AllNum：${AllNum} 此时的半径：${r}`);
+                // }
             } while (num > AllNum);
-            // let pos = num - parseInt(2 * Math.PI * (r - R) / R);
             let pos = parseInt(2 * Math.PI * r / R) - AllNum + num
-            // let posX = parseInt(Math.cos(pos * 2 * Math.PI / (AllNum - parseInt(2 * Math.PI * (r - R) / R))) * r) + cX;
             let posX = parseInt(Math.cos(pos * 2 * Math.PI / (parseInt(2 * Math.PI * r / R))) * r) + cX;
-            // let posZ = -parseInt(Math.sin(pos * 2 * Math.PI / (AllNum - parseInt(2 * Math.PI * (r - R) / R))) * r) + cZ;
             let posZ = -parseInt(Math.sin(pos * 2 * Math.PI / (parseInt(2 * Math.PI * r / R))) * r) + cZ;
-            //调试语句
-            Broadcast(`§7num的值为：${num} pos的值为：${pos} posX的值为：${posX} posZ的值为：${posZ}`);
-            RunCmd(`structure load mystructure:island1 ${posX} ${cY} ${posZ}`);
-            RunCmd(`tp @a[name=${playerName}] ${posX} ${cY + 15} ${posZ}`)
+            // 调试语句
+            // Broadcast(`§7num的值为：${num} pos的值为：${pos} posX的值为：${posX} posZ的值为：${posZ}`);
+            // 开始检查相关区域是否全部为空气
+            RunCmd(`tp @a[name=${playerName}] ${posX + dX} ${cY + dY + 20} ${posZ + dZ}`);
+            return [posX, posZ]
+        }
+    }
+}
+
+/**
+ * 根据空岛编号计算相关空岛坐标并生成空岛
+ */
+function SpawnIsland(playerName,posX,cY,posZ,structureName,dX,dY,dZ) {
+    // Broadcast(`§7YYYYYYYYYYYY`);
+    let minX = posX
+    let minY = cY
+    let minZ = posZ
+    let maxX = posX + 20
+    let maxY = cY + 20
+    let maxZ = posZ + 20
+    let AllAir = true
+    try {
+        let block = world.getDimension("overworld").getBlock(new BlockLocation(minX, minY, minZ))
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                for (let z = minZ; z <= maxZ; z++) {
+                    block = world.getDimension("overworld").getBlock(new BlockLocation(x, y, z))
+                    if (block.typeId != "minecraft:air") {
+                        AllAir = false
+                        break;
+                    }
+                }
+                if (!AllAir) {break}
+            }
+            if (!AllAir) {break}
+        }
+        if (AllAir) {
+            Tell(`§a>> 位置检查完毕！可以正常生成空岛，已经自动生成空岛`,playerName)
+            RunCmd(`structure load ${structureName} ${posX} ${cY} ${posZ}`);
+            RunCmd(`tp @a[name=${playerName}] ${posX + dX} ${cY + dY} ${posZ + dZ}`);
+            RunCmd(`scoreboard players set @a[name=${playerName}] posX ${posX + dX}`)
+            RunCmd(`scoreboard players set @a[name=${playerName}] posY ${cY + dY}`)
+            RunCmd(`scoreboard players set @a[name=${playerName}] posZ ${posZ + dZ}`)
+            RunCmd(`spawnpoint @a[name=${playerName}] ${posX + dX} ${cY + dY} ${posZ + dZ}`)
+            RunCmd(`tag ${playerName} add HaveIsland`)
+            RunCmd(`title ${playerName} title §a空岛生成成功！`);
+            RunCmd(`title ${playerName} subtitle §7重生点、主岛坐标已自动更新！`);
             RunCmd("scoreboard players add num IslandData 1");
-            break;
+        } else {
+            Tell(`§c>> 位置检查完毕！目标位置有方块阻挡，正在尝试重新生成...`,playerName)
+            RunCmd("scoreboard players add num IslandData 1");
+            RunCmd(`scoreboard players set @a[name=${playerName}] c_time 1`);
+        }
+    } catch (e) {
+        if (e) {
+            Tell(`§c>> 本次空岛生成失败，请手动尝试重新生成！如果多次生成失败请联系服主！`,playerName)
+            RunCmd(`tp "${playerName}" 702 82 554`);
         }
     }
 }
@@ -810,26 +351,40 @@ world.events.beforeChat.subscribe(t => {
                     AddScoreboard("menu","§6==NIA服务器==");
                     AddScoreboard("AnoxicTime","缺氧时间");
                     AddScoreboard("CDK","CDK数据");
+                    AddScoreboard("show_time","展示时间");
+                    AddScoreboard("c_time","创建空岛时间");
+                    AddScoreboard("stamina","体力值")
+                    AddScoreboard("miningTime","采矿时间")
+                    RunCmd(`scoreboard players set num IslandData 1`)
                     Broadcast("§a===============================\n§c>> NIA V4初始化安装已完成！");
                     break;
                 case "-c":
                     hasCommand = true;
-                    Tell("§c>> 注意本指令为调试指令，不要在正式生产环境中使用本指令！",t.sender.nameTag);
-                    break;
-                case "-sckdceshi":
-                    hasCommand = true;
-                    Tell("§c>> 注意本指令为调试指令，不要在正式生产环境中使用本指令！",t.sender.nameTag);
-                    CaculatePos(t.sender.nameTag,CX,70,CZ);
-                    break;
-                case "-a":
-                    hasCommand = true;
-                    Tell("111",t.sender.nameTag)
-                    world.setDynamicProperty("a", true)
-                    Tell("222",t.sender.nameTag)
-                    if (world.getDynamicProperty("a")) {
-                        Tell("232",t.sender.nameTag)
+                    let str = "随机生成150个物价指数："
+                    for (let i = 0; i < 200; i++) {
+                        str = str + " " + getNumberInNormalDistribution(100,20).toFixed(0)
                     }
-                    Tell("333",t.sender.nameTag)
+                    Broadcast(str)
+                    Tell("§c>> 注意本指令为调试指令，不要在正式生产环境中使用本指令！",t.sender.nameTag);
+                    break;
+                case "-h":
+                    hasCommand = true;
+                    Tell("§c>> 注意本指令为调试指令，不要在正式生产环境中使用本指令！",t.sender.nameTag);
+                    break;
+                case "-RN":
+                    hasCommand = true;
+                    let RN = parseInt(getNumberInNormalDistribution(100,20))
+                    //防止物价指数出现极端数值
+                    if (RN <= 20 || RN >= 180) {
+                        RN = 100
+                    }
+                    RunCmd(`scoreboard players set RN DATA ${RN}`);
+                    RunCmd(`title @a title §c物价指数触发手动更新！`)
+                    RunCmd(`title @a subtitle §7物价指数由 §l§e${GetScore("DATA","RN") / 100} §r§7变为 §l§e${RN / 100}`)
+                    RunCmd(`backup`);
+                    Tell("§c>> 注意本指令为调试指令，不要在正式生产环境中使用本指令！",t.sender.nameTag);
+                    break;
+                case "-spawnores":
                     break;
             }
             if (!hasCommand) {
@@ -850,27 +405,27 @@ world.events.beforeChat.subscribe(t => {
                 hasCommand = true;
                 Tell("§c暂无相关帮助",t.sender.nameTag);
                 break;
-            case "+get":
-                hasCommand = true;
-                RunCmd(`scoreboard players add @a UUID 0`)
-                let Participants = world.scoreboard.getObjective("UUID").getParticipants();
-                for (let i = 0; i < Participants.length; i++) {
-                    if (Participants[i].displayName == t.sender.nameTag) {
-                        let UUID = world.scoreboard.getObjective("UUID").getScore(Participants[i]);
-                        if (UUID == 0) {
-                            UUID = 100000 + Math.floor(Math.random() * 100000);
-                            RunCmd(`scoreboard players set @a[name=${t.sender.nameTag}] UUID ${UUID}`);
-                            Tell(`§c>> 您第一次获取UUID，已经为您获取的UUID为：§a${UUID}§c，请发给腐竹获取创造验证码！`,t.sender.nameTag);
-                        } else {
-                            Tell(`§c>> 您的UUID为：§a${UUID}§c，请发给腐竹获取创造验证码！`,t.sender.nameTag);
-                        }
-                        break;
-                    }
-                }
-                break;
+            // case "+get":
+            //     hasCommand = true;
+                // RunCmd(`scoreboard players add @a UUID 0`)
+                // let Participants = world.scoreboard.getObjective("UUID").getParticipants();
+                // for (let i = 0; i < Participants.length; i++) {
+                //     if (Participants[i].displayName == t.sender.nameTag) {
+                //         let UUID = world.scoreboard.getObjective("UUID").getScore(Participants[i]);
+                //         if (UUID == 0) {
+                //             UUID = 100000 + Math.floor(Math.random() * 100000);
+                //             RunCmd(`scoreboard players set @a[name=${t.sender.nameTag}] UUID ${UUID}`);
+                //             Tell(`§c>> 您第一次获取UUID，已经为您获取的UUID为：§a${UUID}§c，请发给腐竹获取创造验证码！`,t.sender.nameTag);
+                //         } else {
+                //             Tell(`§c>> 您的UUID为：§a${UUID}§c，请发给腐竹获取创造验证码！`,t.sender.nameTag);
+                //         }
+                //         break;
+                //     }
+                // }
+            //     break;
             case "+zc":
                 hasCommand = true;
-                RunCmd(`tp "${t.sender.nameTag}" 402 56 547`);
+                RunCmd(`tp "${t.sender.nameTag}" 702 82 554`);
                 break;
             case "+clock":
                 hasCommand = true;
@@ -884,29 +439,29 @@ world.events.beforeChat.subscribe(t => {
     }
 
     //对于指令前缀"#"的检测
-    if (t.message.slice(0,1) == "#") {
-        //取消有自定义指令前缀的消息输出
-        t.cancel = true;
-        RunCmd(`scoreboard players add @a UUID 0`)
-        let Participants = world.scoreboard.getObjective("UUID").getParticipants();
-        for (let i = 0; i < Participants.length; i++) {
-            if (Participants[i].displayName == t.sender.nameTag) {
-                let UUID = world.scoreboard.getObjective("UUID").getScore(Participants[i]);
-                if (UUID == 0) {
-                    Tell(`§c>> 您还没有UUID，请输入+get来获取！`,t.sender.nameTag);
-                } else {
-                    let password = parseInt(t.message.slice(1));
-                    if (password == parseInt(((UUID * 12345) + 65432) / 9876 + 100000)) {
-                        Tell(`§c>> 验证码正确！您已获得相关权限！`,t.sender.nameTag);
-                        RunCmd(`gamemode c ${t.sender.nameTag}`);
-                    } else {
-                        Tell(`§c>> 您输入的验证码不正确，请再次重试！如果您还未获得验证码，请将您的UUID§a${UUID}§c发给腐竹获取创造验证码！`,t.sender.nameTag);
-                    }
-                }
-                break;
-            }
-        }
-    }
+    // if (t.message.slice(0,1) == "#") {
+    //     //取消有自定义指令前缀的消息输出
+    //     t.cancel = true;
+    //     RunCmd(`scoreboard players add @a UUID 0`)
+    //     let Participants = world.scoreboard.getObjective("UUID").getParticipants();
+    //     for (let i = 0; i < Participants.length; i++) {
+    //         if (Participants[i].displayName == t.sender.nameTag) {
+    //             let UUID = world.scoreboard.getObjective("UUID").getScore(Participants[i]);
+    //             if (UUID == 0) {
+    //                 Tell(`§c>> 您还没有UUID，请输入+get来获取！`,t.sender.nameTag);
+    //             } else {
+    //                 let password = parseInt(t.message.slice(1));
+    //                 if (password == parseInt(((UUID * 12345) + 65432) / 9876 + 100000)) {
+    //                     Tell(`§c>> 验证码正确！您已获得相关权限！`,t.sender.nameTag);
+    //                     RunCmd(`gamemode c ${t.sender.nameTag}`);
+    //                 } else {
+    //                     Tell(`§c>> 您输入的验证码不正确，请再次重试！如果您还未获得验证码，请将您的UUID§a${UUID}§c发给腐竹获取创造验证码！`,t.sender.nameTag);
+    //                 }
+    //             }
+    //             break;
+    //         }
+    //     }
+    // }
 
     //对于指令前缀"*"的检测
     if (t.message.slice(0,1) == "*") {
@@ -932,351 +487,380 @@ const guiAPI = {
     Main(player) {
          //定义服务器主菜单
         const MainForm = new ActionFormData()
-        .body(`§l===========================\n§eHi! §l§6${player.nameTag} §r§e欢迎回来！\n§e您目前能源币余额： §6§l${GetScore("money",player.nameTag)}\n§r§e您目前剩余氧气值为： §6§l${GetScore("oxygen",player.nameTag)}\n§r§e您目前在线总时长为： §6§l${GetScore("time",player.nameTag)}\n§r§e当前物价指数为： §6§l${GetScore("DATA","RN")/100}\n§r§l===========================\n§r§c§l游玩中有问题找腐竹反馈！\n祝您游玩愉快！\n§r§l===========================`)
+        .body(`§l===========================\n§eHi! §l§6${player.nameTag} §r§e欢迎回来！\n§e您目前能源币余额： §6§l${GetScore("money",player.nameTag)}\n§r§e您目前剩余氧气值为： §6§l${GetScore("oxygen",player.nameTag)}\n§r§e您目前剩余体力值为： §6§l${GetScore("stamina",player.nameTag)}\n§r§e您目前在线总时长为： §6§l${GetScore("time",player.nameTag)}\n§r§e当前物价指数为： §6§l${GetScore("DATA","RN")/100}\n§r§l===========================\n§r§c§l游玩中有问题找腐竹反馈！\n祝您游玩愉快！\n§r§l===========================`)
         .title("服务器菜单")
         .button("立即回城","textures/blocks/chest_front")
         .button("返回主岛","textures/ui/backup_replace")
+        .button("调节生存模式","textures/ui/controller_glyph_color")
         .button("标题栏设置","textures/ui/automation_glyph_color")
         .button("商店系统","textures/ui/icon_blackfriday")
         .button("玩家传送系统","textures/ui/dressing_room_skins")
         .button("兑换码系统","textures/ui/gift_square")
+        .button("飞行系统","textures/ui/levitation_effect")
         .button("转账系统","textures/ui/icon_best3")
-        if (player.hasTag("op") && player.isOp()) {
+        if (player.hasTag("op")) {
             MainForm.button("管理员面板","textures/ui/op")
         }
         MainForm.show(player).then((response) => {
             switch (response.selection) {
                 case 0:
                     Tell(`§e>> 您已被传送至服务器主城！`,player.nameTag);
-                    RunCmd(`tp @a[name=${player.nameTag}] 100 100 100`)
+                    RunCmd(`tp @a[name=${player.nameTag}] 702 82 554`)
                     break;
                 case 1:
+                    if (GetScore("posX",player.nameTag) == 0 && GetScore("posY",player.nameTag) == 0 && GetScore("posZ",player.nameTag) == 0) {
+                        Tell(`§c>> 未找到相应的主岛数据！请在领取空岛后使用本功能！`,player.nameTag)
+                    } else {
+                        RunCmd(`tp @a[name=${player.nameTag}] ${GetScore("posX",player.nameTag)} ${GetScore("posY",player.nameTag)} ${GetScore("posZ",player.nameTag)}`)
+                        Tell(`§a>> 已经将您传送至主岛！`,player.nameTag)
+                    }
                     break;
                 case 2:
-                    this.ActionBar(player);
+                    RunCmd(`gamemode s ${player.nameTag}`)
                     break;
                 case 3:
-                    this.ShopMain(player);
+                    this.ActionBar(player);
                     break;
                 case 4:
-                    this.TpaMain(player);
+                    ShopGUI.ShopMain(player);
                     break;
                 case 5:
-                    this.CDK(player);
+                    this.TpaMain(player);
                     break;
                 case 6:
-                    this.Transfer(player);
+                    this.CDK(player);
                     break;
                 case 7:
+                    this.Fly(player);
+                    break;
+                case 8:
+                    this.Transfer(player);
+                    break;
+                case 9:
                     this.CheckOP(player);
                     break;
             }
         });
     },
 
-    ShopMain(player) {
-        const ShopMainForm = new ActionFormData()
-            .title("§e§l服务器商店")
-            .body("§l===========================\n§r§e欢迎光临服务器官方商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§c请根据自己需求理性购物！\n§r§l===========================")
-            .button("§c返回上一级")
-            .button("查看今日折扣商品\n§7立即查看现在的折扣商品！")
-            .button("售卖物品商店\n§7在这里售卖各式各样的物品！")
-            .button("回收物品商店\n§7在这里回收各式各样的物品！")
-            .button("氧气装备商店\n§7在这里售卖氧气、呼吸装备等物品！")
-        ShopMainForm.show(player).then((response) => {
-            switch (response.selection) {
-                case 0:
-                    this.Main(player);
-                    break;
-                case 1:
-                    this.Discount(player);
-                    break;
-                case 2:
-                    this.ShopPurchase(player)
-                    break;
-                case 3:
-                    this.ShopRecycle(player);
-                    break;
-                case 4:
-                    this.OxygenMain(player);
-                    break
-            }
-        })
-    },
+    // ShopMain(player) {
+    //     const ShopMainForm = new ActionFormData()
+    //         .title("§e§l服务器商店")
+    //         .body("§l===========================\n§r§e欢迎光临服务器官方商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§c请根据自己需求理性购物！\n§r§l===========================")
+    //         .button("§c返回上一级")
+    //         .button("查看今日折扣商品\n§7立即查看现在的折扣商品！")
+    //         .button("售卖物品商店\n§7在这里售卖各式各样的物品！")
+    //         .button("回收物品商店\n§7在这里回收各式各样的物品！")
+    //         .button("氧气装备商店\n§7在这里售卖氧气、呼吸装备等物品！")
+    //     ShopMainForm.show(player).then((response) => {
+    //         switch (response.selection) {
+    //             case 0:
+    //                 this.Main(player);
+    //                 break;
+    //             case 1:
+    //                 this.Discount(player);
+    //                 break;
+    //             case 2:
+    //                 this.ShopPurchase(player)
+    //                 break;
+    //             case 3:
+    //                 this.ShopRecycle(player);
+    //                 break;
+    //             case 4:
+    //                 this.OxygenMain(player);
+    //                 break
+    //         }
+    //     })
+    // },
 
-    Discount(player) {
-        const DiscountForm = new ActionFormData()
-        DiscountForm.title("今日折扣")
-        let Str = "§l===========================§r\n§e§l每天各个物品的折扣\n可能根据市场有所变动！\n§r§l===========================§r\n"
-        let num = 1;
-        for(let i = 0; i < SellData.length; i++) {
-            for(let j = 0; j < SellData[i].content.length; j++) {
-                if(SellData[i].content[j].discount != 1) {
-                    Str = Str + "§r§c"+ num + ".§r§e" + SellData[i].content[j].name + " §6" + SellData[i].content[j].discount * 10 + "§e折 折后价格：§6" + parseInt(SellData[i].content[j].price *  SellData[i].content[j].discount * GetScore("DATA","RN") / 100) + "\n§r"
-                    num++
-                }
-            }
-        }
-        DiscountForm.body(Str + "§l===========================\n§c" + "【广告】广告位招商\n详情咨询腐竹！" + "\n§r§l===========================")
-        DiscountForm.button("§c返回上一级")
-        DiscountForm.show(player).then((result) => {
-            if (result.selection == 0) {
-                this.ShopMain(player)
-            }
-        })
-    },
+    // Discount(player) {
+    //     const DiscountForm = new ActionFormData()
+    //     DiscountForm.title("今日折扣")
+    //     let Str = "§l===========================§r\n§e§l每天各个物品的折扣\n可能根据市场有所变动！\n§r§l===========================§r\n"
+    //     let num = 1;
+    //     for(let i = 0; i < SellData.length; i++) {
+    //         for(let j = 0; j < SellData[i].content.length; j++) {
+    //             if(SellData[i].content[j].discount != 1) {
+    //                 Str = Str + "§r§c"+ num + ".§r§e" + SellData[i].content[j].name + " §6" + SellData[i].content[j].discount * 10 + "§e折 折后价格：§6" + parseInt(SellData[i].content[j].price *  SellData[i].content[j].discount * GetScore("DATA","RN") / 100) + "\n§r"
+    //                 num++
+    //             }
+    //         }
+    //     }
+    //     DiscountForm.body(Str + "§l===========================\n§c" + "【广告】广告位招商\n详情咨询腐竹！" + "\n§r§l===========================")
+    //     DiscountForm.button("§c返回上一级")
+    //     DiscountForm.show(player).then((result) => {
+    //         if (result.selection == 0) {
+    //             this.ShopMain(player)
+    //         }
+    //     })
+    // },
 
-    ShopPurchase(player) {
-        //定义商店售卖页面菜单
-        const ShopPurchaseForm = new ActionFormData()
-            .title("§e§l服务器商店")
-            .body("§l===========================\n§r§e欢迎光临服务器官方商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§c请根据自己需求理性购物！\n§r§l===========================")
-            .button("§c返回上一级")
-            for(let i = 0; i < SellData.length; i++) {
-                ShopPurchaseForm.button(SellData[i].name + "\n" + SellData[i].description,SellData[i].image)
-            }
-        ShopPurchaseForm.show(player).then((response) => {
-            if (response.selection == 0) {
-                this.ShopMain(player)
-            } else {
-                this.ShopPurchaseSub(player, response.selection - 1)
-            }
-        })
-    },
+    // ShopPurchase(player) {
+    //     //定义商店售卖页面菜单
+    //     const ShopPurchaseForm = new ActionFormData()
+    //         .title("§e§l服务器商店")
+    //         .body("§l===========================\n§r§e欢迎光临服务器官方商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§c请根据自己需求理性购物！\n§r§l===========================")
+    //         .button("§c返回上一级")
+    //         for(let i = 0; i < SellData.length; i++) {
+    //             ShopPurchaseForm.button(SellData[i].name + "\n" + SellData[i].description,SellData[i].image)
+    //         }
+    //     ShopPurchaseForm.show(player).then((response) => {
+    //         if (response.selection == 0) {
+    //             this.ShopMain(player)
+    //         } else {
+    //             this.ShopPurchaseSub(player, response.selection - 1)
+    //         }
+    //     })
+    // },
 
-    ShopPurchaseSub(player,index1) {
-        //定义商店售卖二级页面
-        const ShopPurchaseSubForm = new ActionFormData()
-            .title("§e§l服务器商店")
-            .body("§l===========================\n§r§e欢迎光临服务器官方商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§c请根据自己需求理性购物！\n§r§l===========================")
-            .button("§c返回上一级")
-        for(let i = 0; i < SellData[index1].content.length; i++) {
-            if (SellData[index1].content[i].discount == 1) {
-                ShopPurchaseSubForm.button(SellData[index1].content[i].name + "\n价格: §9" + parseInt(SellData[index1].content[i].price * GetScore("DATA","RN") / 100),SellData[index1].content[i].image)
-            } else {
-                ShopPurchaseSubForm.button("§c[限时优惠]§r" + SellData[index1].content[i].name + "\n原价：§9" + parseInt(SellData[index1].content[i].price * GetScore("DATA","RN") / 100) +"§r 现价: §9" + parseInt(SellData[index1].content[i].price * SellData[index1].content[i].discount * GetScore("DATA","RN") / 100),SellData[index1].content[i].image)
-            }
-        }
-        ShopPurchaseSubForm.show(player).then((response) => {
-            if (response.selection == 0) {
-                this.ShopPurchase(player)
-            } else {
-                this.ShopBuy(player,index1,response.selection - 1)
-            }
-        })
-    },
+    // ShopPurchaseSub(player,index1) {
+    //     //定义商店售卖二级页面
+    //     const ShopPurchaseSubForm = new ActionFormData()
+    //         .title("§e§l服务器商店")
+    //         .body("§l===========================\n§r§e欢迎光临服务器官方商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§c请根据自己需求理性购物！\n§r§l===========================")
+    //         .button("§c返回上一级")
+    //     for(let i = 0; i < SellData[index1].content.length; i++) {
+    //         if (SellData[index1].content[i].discount == 1) {
+    //             ShopPurchaseSubForm.button(SellData[index1].content[i].name + "\n价格: §9" + parseInt(SellData[index1].content[i].price * GetScore("DATA","RN") / 100),SellData[index1].content[i].image)
+    //         } else {
+    //             ShopPurchaseSubForm.button("§c[限时优惠]§r" + SellData[index1].content[i].name + "\n原价：§9" + parseInt(SellData[index1].content[i].price * GetScore("DATA","RN") / 100) +"§r 现价: §9" + parseInt(SellData[index1].content[i].price * SellData[index1].content[i].discount * GetScore("DATA","RN") / 100),SellData[index1].content[i].image)
+    //         }
+    //     }
+    //     ShopPurchaseSubForm.show(player).then((response) => {
+    //         if (response.selection == 0) {
+    //             this.ShopPurchase(player)
+    //         } else {
+    //             this.ShopBuy(player,index1,response.selection - 1)
+    //         }
+    //     })
+    // },
 
-    ShopBuy(player,index1,index2) {
-        //定义商店售卖二级页面
-        const ShopBuyForm = new ModalFormData()
-        ShopBuyForm.title("§c§l确认购买 " + SellData[index1].content[index2].name + " 的数量")
-        ShopBuyForm.slider("请选择你要购买的数量",1,64,1,1);
-        ShopBuyForm.show(player).then((result) => {
-            this.ShopBuySub(player,index1,index2,result.formValues[0])
-        })
-    },
+    // ShopBuy(player,index1,index2) {
+    //     //定义商店售卖二级页面
+    //     const ShopBuyForm = new ModalFormData()
+    //     ShopBuyForm.title("§c§l确认购买 " + SellData[index1].content[index2].name + " 的数量")
+    //     // ShopBuyForm.slider("请选择你要购买的数量",1,64,1,1);
+    //     ShopBuyForm.textField("请输入你要购买的数量","只能输入正整数！","1")
+    //     ShopBuyForm.show(player).then((result) => {
+    //         if(result.canceled) {
+    //             this.ShopPurchaseSub(player,index1)
+    //         }
+    //         if (parseInt(result.formValues[0]) <= 0 || isNaN(parseInt(Number(result.formValues[0])))) {
+    //             Tell(`§c>> 错误的数字格式，请重新输入！`,player.nameTag)
+    //             this.ShopBuy(player,index1,index2)
+    //         } else if (parseInt(result.formValues[0]) >= 1025) {
+    //             Tell(`§c>> 单次购买物品的数量上限是1024，请重新输入！`,player.nameTag)
+    //             this.ShopBuy(player,index1,index2)
+    //         } else {
+    //             this.ShopBuySub(player,index1,index2,result.formValues[0])
+    //         }
+    //     })
+    // },
 
-    ShopBuySub(player,i,j,num) {
-        const ShopBuySubForm = new MessageFormData()
-            .title("§c§l确认购买 " + SellData[i].content[j].name)
-            .body("§e您确定要以 §l" + parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num + "§r§e 能源币，购买 §l" + num + " §r§e个" + SellData[i].content[j].name + "?\n§c§l注意：所有商品一旦售出概不退换！")
-            .button1("§c§l取消")
-            .button2("§a§l确定")
-        ShopBuySubForm.show(player).then((result) => {
-            switch(result.selection) {
-                case 0:
-                    if (GetScore("money",player.nameTag) >= parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num) {
-                        RunCmd(`give "${player.nameTag}" ${SellData[i].content[j].type} ${num} ${SellData[i].content[j].data}`)
-                        RunCmd(`scoreboard players add @a[name="${player.nameTag}"] money -${parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num}`)
-                        Tell("§a>> 购买成功！§e您以 §l" + parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num + "§r§e 能源币，成功购买 §l" + num + " §r§e个" + SellData[i].content[j].name + "!期待您的下次光临！",player.nameTag)
-                    } else {
-                        Tell(`§c>> 购买失败！余额不足，您的余额为 ${GetScore("money",player.nameTag)} 能源币，而本次购买需要 ${parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num} 能源币，您还缺少 ${parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num - GetScore("money",player.nameTag)} 能源币，请在攒够足够能源币后尝试再次购买！`,player.nameTag)
-                    }
-                    break;
-                case 1:
-                    Tell("§c>> 购买失败！原因是您自己取消了本次购买！",player.nameTag)
-                    break;
-            }
-        })
-    },
+    // ShopBuySub(player,i,j,num) {
+    //     const ShopBuySubForm = new MessageFormData()
+    //         .title("§c§l确认购买 " + SellData[i].content[j].name)
+    //         .body("§e您确定要以 §l" + parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num + "§r§e 能源币，购买 §l" + num + " §r§e个" + SellData[i].content[j].name + "?\n§c§l注意：所有商品一旦售出概不退换！")
+    //         .button1("§c§l取消")
+    //         .button2("§a§l确定")
+    //     ShopBuySubForm.show(player).then((result) => {
+    //         switch(result.selection) {
+    //             case 0:
+    //                 if (GetScore("money",player.nameTag) >= parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num) {
+    //                     RunCmd(`give "${player.nameTag}" ${SellData[i].content[j].type} ${num} ${SellData[i].content[j].data}`)
+    //                     RunCmd(`scoreboard players add @a[name="${player.nameTag}"] money -${parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num}`)
+    //                     Tell("§a>> 购买成功！§e您以 §l" + parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num + "§r§e 能源币，成功购买 §l" + num + " §r§e个" + SellData[i].content[j].name + "!期待您的下次光临！",player.nameTag)
+    //                     this.ShopPurchaseSub(player,i)
+    //                 } else {
+    //                     Tell(`§c>> 购买失败！余额不足，您的余额为 ${GetScore("money",player.nameTag)} 能源币，而本次购买需要 ${parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num} 能源币，您还缺少 ${parseInt(SellData[i].content[j].price * SellData[i].content[j].discount * GetScore("DATA","RN") / 100) * num - GetScore("money",player.nameTag)} 能源币，请在攒够足够能源币后尝试再次购买！`,player.nameTag)
+    //                     this.ShopPurchaseSub(player,i)
+    //                 }
+    //                 break;
+    //             case 1:
+    //                 Tell("§c>> 购买失败！原因是您自己取消了本次购买！",player.nameTag)
+    //                 this.ShopPurchaseSub(player,i)
+    //                 break;
+    //         }
+    //     })
+    // },
 
-    /////////////////////////////////////////////
-    ShopRecycle(player) {
-        //定义商店回收页面菜单
-        const ShopRecycleForm = new ActionFormData()
-            .title("§e§l回收商店")
-            .body("§l===========================\n§r§e欢迎光临服务器官方回收商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§l===========================")
-            .button("§c返回上一级")
-            for(let i = 0; i < RecycleData.length; i++) {
-                ShopRecycleForm.button(RecycleData[i].name + "\n" + RecycleData[i].description,RecycleData[i].image)
-            }
-            ShopRecycleForm.show(player).then((response) => {
-            if (response.selection == 0) {
-                this.ShopMain(player)
-            } else {
-                this.ShopRecycleSub(player, response.selection - 1)
-            }
-        })
-    },
+    // /////////////////////////////////////////////
+    // ShopRecycle(player) {
+    //     //定义商店回收页面菜单
+    //     const ShopRecycleForm = new ActionFormData()
+    //         .title("§e§l回收商店")
+    //         .body("§l===========================\n§r§e欢迎光临服务器官方回收商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§l===========================")
+    //         .button("§c返回上一级")
+    //         for(let i = 0; i < RecycleData.length; i++) {
+    //             ShopRecycleForm.button(RecycleData[i].name + "\n" + RecycleData[i].description,RecycleData[i].image)
+    //         }
+    //         ShopRecycleForm.show(player).then((response) => {
+    //         if (response.selection == 0) {
+    //             this.ShopMain(player)
+    //         } else {
+    //             this.ShopRecycleSub(player, response.selection - 1)
+    //         }
+    //     })
+    // },
 
-    ShopRecycleSub(player,index1) {
-        //定义商店回收的二级页面
-        const ShopRecycleSubForm = new ActionFormData()
-            .title("§e§l回收商店")
-            .body("§l===========================\n§r§e欢迎光临服务器官方回收商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§l===========================")
-            .button("§c返回上一级")
-        for(let i = 0; i < RecycleData[index1].content.length; i++) {
-            if (RecycleData[index1].content[i].lim == false) {
-                ShopRecycleSubForm.button(RecycleData[index1].content[i].name + "\n回收单价: §9" + parseInt(RecycleData[index1].content[i].price * GetScore("DATA","RN") / 100),RecycleData[index1].content[i].image)
-            } else {
-                ShopRecycleSubForm.button("§c[单日回收数量限制]§r" + RecycleData[index1].content[i].name + "\n回收单价：§9" + parseInt(RecycleData[index1].content[i].price * GetScore("DATA","RN") / 100) +" §r回收数量限制:§9 " + RecycleData[index1].content[i].limnum,RecycleData[index1].content[i].image)
-            }
-        }
-        ShopRecycleSubForm.show(player).then((response) => {
-            if (response.selection == 0) {
-                this.ShopRecycle(player)
-            } else {
-                this.ShopSell(player,index1,response.selection - 1)
-            }
-        })
-    },
+    // ShopRecycleSub(player,index1) {
+    //     //定义商店回收的二级页面
+    //     const ShopRecycleSubForm = new ActionFormData()
+    //         .title("§e§l回收商店")
+    //         .body("§l===========================\n§r§e欢迎光临服务器官方回收商店！\n目前服务器的物价指数为： §6§l" + GetScore("DATA","RN")/100 + "\n§r§e目前您的能源币余额为： §6§l" + GetScore("money",player.nameTag) + "\n§r§l===========================")
+    //         .button("§c返回上一级")
+    //     for(let i = 0; i < RecycleData[index1].content.length; i++) {
+    //         if (RecycleData[index1].content[i].lim == false) {
+    //             ShopRecycleSubForm.button(RecycleData[index1].content[i].name + "\n回收单价: §9" + parseInt(RecycleData[index1].content[i].price * GetScore("DATA","RN") / 100),RecycleData[index1].content[i].image)
+    //         } else {
+    //             ShopRecycleSubForm.button("§c[单日回收数量限制]§r" + RecycleData[index1].content[i].name + "\n回收单价：§9" + parseInt(RecycleData[index1].content[i].price * GetScore("DATA","RN") / 100) +" §r回收数量限制:§9 " + RecycleData[index1].content[i].limnum,RecycleData[index1].content[i].image)
+    //         }
+    //     }
+    //     ShopRecycleSubForm.show(player).then((response) => {
+    //         if (response.selection == 0) {
+    //             this.ShopRecycle(player)
+    //         } else {
+    //             this.ShopSell(player,index1,response.selection - 1)
+    //         }
+    //     })
+    // },
 
-    ShopSell(player,index1,index2) {
-        //回收物品这里有四种情况-没有相关物品-回收数量达到限额-有相关物品但有数量限制-有相关物品但没有数量限制
-        //首先判断有没有相关物品
-        let ItemNum = 0;
-        //判断回收项目是否不限特殊值
-        if (RecycleData[index1].content[index2].data == -1) {
-            for (let i = 0; i < 35; i++) {
-                if (player.getComponent("minecraft:inventory").container.getItem(i) != undefined && player.getComponent("minecraft:inventory").container.getItem(i).typeId == RecycleData[index1].content[index2].type) {
-                    ItemNum = ItemNum + player.getComponent("minecraft:inventory").container.getItem(i).amount
-                }
-            }
-        } else {
-            for (let i = 0; i < 35; i++) {
-                if (player.getComponent("minecraft:inventory").container.getItem(i) != undefined && player.getComponent("minecraft:inventory").container.getItem(i).typeId == RecycleData[index1].content[index2].type && player.getComponent("minecraft:inventory").container.getItem(i).data == RecycleData[index1].content[index2].data) {
-                    ItemNum = ItemNum + player.getComponent("minecraft:inventory").container.getItem(i).amount
-                }
-            }
-        }
-        //有物品之后再次判断是否限制数量
-        if (ItemNum != 0) {
-            let HasLim = false;
-            //限制每日兑换数量
-            if (RecycleData[index1].content[index2].lim) {
-                //限制数量就判断是否达到限额
-                let HaveData = false;
-                let ScoreBoards = world.scoreboard.getObjectives()
-                //直接遍历所有计分板看玩家有没有创建相关数据
-                for (let i = 0; i < ScoreBoards.length; i++) {
-                    if (ScoreBoards[i].id == "R:" + player.nameTag) {
-                        //进入到这里就说明玩家有相关计分板
-                        for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
-                            if (ScoreBoards[i].getParticipants()[j].displayName == RecycleData[index1].content[index2].type.slice(10)) {
-                                if (GetScore(`R:${player.nameTag}`,`${ScoreBoards[i].getParticipants()[j].displayName}`) == RecycleData[index1].content[index2].limnum) {
-                                    HasLim = true;
-                                }
-                                HaveData = true;
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                }
-                //没有数据就创建数据计分板！
-                if (!HaveData) {
-                    //创建计分板
-                    if (world.scoreboard.getObjective(`R:${player.nameTag}`) == null) {
-                        world.scoreboard.addObjective(`R:${player.nameTag}`,`R:${player.nameTag}`);
-                    }
-                    //设置分数
-                    RunCmd(`scoreboard players set ${RecycleData[index1].content[index2].type.slice(10)} R:${player.nameTag} 0`)
-                }
-            }
-            //没有达到限额&&没有限额
-            if (!HasLim) {
-                const ShopSellForm = new ModalFormData()
-                ShopSellForm.title("§c§l确认回收 " + RecycleData[index1].content[index2].name + " 的数量")
-                if (RecycleData[index1].content[index2].lim) {
-                    let CanRecycleNum = RecycleData[index1].content[index2].limnum - GetScore(`R:${player.nameTag}`,RecycleData[index1].content[index2].type.slice(10))
-                    if (ItemNum > CanRecycleNum) {
-                        ShopSellForm.slider("请选择你要回收的数量",1,CanRecycleNum,1,1);
-                    } else {
-                        ShopSellForm.slider("请选择你要回收的数量",1,ItemNum,1,1);
-                    }
-                } else {
-                    ShopSellForm.slider("请选择你要回收的数量",1,ItemNum,1,1);
-                }
-                ShopSellForm.show(player).then((result) => {
-                    this.ShopSellSub(player,index1,index2,result.formValues[0])
-                })
-            } else {
-                //达到限额提示
-                const ShopSellLimForm = new MessageFormData()
-                    .title("§c§l回收 " + RecycleData[index1].content[index2].name + " 限额提醒")
-                    .body("§e该物品已达到本日回收最大数量，请明天再次尝试回收哦！")
-                    .button1("§c退出")
-                    .button2("§a返回上一级菜单")
-                    ShopSellLimForm.show(player).then(result => {
-                        switch (result.selection) {
-                            case 0:
-                                this.ShopRecycleSub(player,index1);
-                                break;
-                            case 1:
-                                Tell("§c>> 回收失败！原因是该物品已达到本日回收最大数量，请明天再次尝试回收哦！",player.nameTag)
-                                break;
-                        }
-                    })
-            }
+    // ShopSell(player,index1,index2) {
+    //     //回收物品这里有四种情况-没有相关物品-回收数量达到限额-有相关物品但有数量限制-有相关物品但没有数量限制
+    //     //首先判断有没有相关物品
+    //     let ItemNum = 0;
+    //     //判断回收项目是否不限特殊值
+    //     if (RecycleData[index1].content[index2].data == -1) {
+    //         for (let i = 0; i < 35; i++) {
+    //             if (player.getComponent("minecraft:inventory").container.getItem(i) != undefined && player.getComponent("minecraft:inventory").container.getItem(i).typeId == RecycleData[index1].content[index2].type) {
+    //                 ItemNum = ItemNum + player.getComponent("minecraft:inventory").container.getItem(i).amount
+    //             }
+    //         }
+    //     } else {
+    //         for (let i = 0; i < 35; i++) {
+    //             if (player.getComponent("minecraft:inventory").container.getItem(i) != undefined && player.getComponent("minecraft:inventory").container.getItem(i).typeId == RecycleData[index1].content[index2].type && player.getComponent("minecraft:inventory").container.getItem(i).data == RecycleData[index1].content[index2].data) {
+    //                 ItemNum = ItemNum + player.getComponent("minecraft:inventory").container.getItem(i).amount
+    //             }
+    //         }
+    //     }
+    //     //有物品之后再次判断是否限制数量
+    //     if (ItemNum != 0) {
+    //         let HasLim = false;
+    //         //限制每日兑换数量
+    //         if (RecycleData[index1].content[index2].lim) {
+    //             //限制数量就判断是否达到限额
+    //             let HaveData = false;
+    //             let ScoreBoards = world.scoreboard.getObjectives()
+    //             //直接遍历所有计分板看玩家有没有创建相关数据
+    //             for (let i = 0; i < ScoreBoards.length; i++) {
+    //                 if (ScoreBoards[i].id == "R:" + player.nameTag.slice(0,10)) {
+    //                     //进入到这里就说明玩家有相关计分板
+    //                     for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+    //                         if (ScoreBoards[i].getParticipants()[j].displayName == RecycleData[index1].content[index2].type.slice(10)) {
+    //                             if (GetScore(`R:${player.nameTag.slice(0,10)}`,`${ScoreBoards[i].getParticipants()[j].displayName}`) == RecycleData[index1].content[index2].limnum) {
+    //                                 HasLim = true;
+    //                             }
+    //                             HaveData = true;
+    //                             break;
+    //                         }
+    //                     }
+    //                     break;
+    //                 }
+    //             }
+    //             //没有数据就创建数据计分板！
+    //             if (!HaveData) {
+    //                 //创建计分板
+    //                 if (world.scoreboard.getObjective(`R:${player.nameTag.slice(0,10)}`) == null) {
+    //                     world.scoreboard.addObjective(`R:${player.nameTag.slice(0,10)}`,`R:${player.nameTag}`);
+    //                 }
+    //                 //设置分数
+    //                 RunCmd(`scoreboard players set ${RecycleData[index1].content[index2].type.slice(10)} R:${player.nameTag.slice(0,10)} 0`)
+    //             }
+    //         }
+    //         //没有达到限额&&没有限额
+    //         if (!HasLim) {
+    //             const ShopSellForm = new ModalFormData()
+    //             ShopSellForm.title("§c§l确认回收 " + RecycleData[index1].content[index2].name + " 的数量")
+    //             if (RecycleData[index1].content[index2].lim) {
+    //                 let CanRecycleNum = RecycleData[index1].content[index2].limnum - GetScore(`R:${player.nameTag.slice(0,10)}`,RecycleData[index1].content[index2].type.slice(10))
+    //                 if (ItemNum > CanRecycleNum) {
+    //                     ShopSellForm.slider("请选择你要回收的数量",1,CanRecycleNum,1,1);
+    //                 } else {
+    //                     ShopSellForm.slider("请选择你要回收的数量",1,ItemNum,1,1);
+    //                 }
+    //             } else {
+    //                 ShopSellForm.slider("请选择你要回收的数量",1,ItemNum,1,1);
+    //             }
+    //             ShopSellForm.show(player).then((result) => {
+    //                 this.ShopSellSub(player,index1,index2,result.formValues[0])
+    //             })
+    //         } else {
+    //             //达到限额提示
+    //             const ShopSellLimForm = new MessageFormData()
+    //                 .title("§c§l回收 " + RecycleData[index1].content[index2].name + " 限额提醒")
+    //                 .body("§e该物品已达到本日回收最大数量，请明天再次尝试回收哦！")
+    //                 .button1("§c退出")
+    //                 .button2("§a返回上一级菜单")
+    //                 ShopSellLimForm.show(player).then(result => {
+    //                     switch (result.selection) {
+    //                         case 0:
+    //                             this.ShopRecycleSub(player,index1);
+    //                             break;
+    //                         case 1:
+    //                             Tell("§c>> 回收失败！原因是该物品已达到本日回收最大数量，请明天再次尝试回收哦！",player.nameTag)
+    //                             break;
+    //                     }
+    //                 })
+    //         }
 
-        } else {
-            //没有相关物品提醒
-            const ShopSellNoItemForm = new MessageFormData()
-                .title("§c§l回收 " + RecycleData[index1].content[index2].name + " 失败提醒")
-                .body("§c§l没有在您的背包中找到相应物品！请检查背包后再次尝试！")
-                .button1("§c退出")
-                .button2("§a返回上一级菜单")
-                ShopSellNoItemForm.show(player).then(result => {
-                    switch (result.selection) {
-                        case 0:
-                            this.ShopRecycleSub(player,index1);
-                            break;
-                        case 1:
-                            Tell("§c>> 回收失败！原因是没有在您的背包中找到相应物品！请检查背包后再次尝试！",player.nameTag)
-                            break;
-                    }
-                })
-        }
+    //     } else {
+    //         //没有相关物品提醒
+    //         const ShopSellNoItemForm = new MessageFormData()
+    //             .title("§c§l回收 " + RecycleData[index1].content[index2].name + " 失败提醒")
+    //             .body("§c§l没有在您的背包中找到相应物品！请检查背包后再次尝试！")
+    //             .button1("§c退出")
+    //             .button2("§a返回上一级菜单")
+    //             ShopSellNoItemForm.show(player).then(result => {
+    //                 switch (result.selection) {
+    //                     case 0:
+    //                         this.ShopRecycleSub(player,index1);
+    //                         break;
+    //                     case 1:
+    //                         Tell("§c>> 回收失败！原因是没有在您的背包中找到相应物品！请检查背包后再次尝试！",player.nameTag)
+    //                         break;
+    //                 }
+    //             })
+    //     }
 
-    },
+    // },
 
-    //开始发送确认回收的表单
-    ShopSellSub(player,index1,index2,num) {
-        const ShopSellSubForm = new MessageFormData()
-            .title("§c§l确认回收 " + RecycleData[index1].content[index2].name)
-            .body("§e您确定要以 §l" + parseInt(RecycleData[index1].content[index2].price *  GetScore("DATA","RN") / 100) * num + "§r§e 能源币的报酬，回收 §l" + num + " §r§e个" + RecycleData[index1].content[index2].name + "?\n§c§l注意：所有商品一旦回收无法逆转！")
-            .button1("§c§l取消")
-            .button2("§a§l确定")
-            ShopSellSubForm.show(player).then((result) => {
-            switch(result.selection) {
-                case 0:
-                    //首先进行判断是否有限制，有限制就直接写入相关数据
-                    if (RecycleData[index1].content[index2].lim) {
-                        // PlayerRecycleData[player.nameTag][RecycleData[index1].content[index2].type] = PlayerRecycleData[player.nameTag][RecycleData[index1].content[index2].type] + num
-                        RunCmd(`scoreboard players set ${RecycleData[index1].content[index2].type.slice(10)} R:${player.nameTag} ${GetScore(`R:${player.nameTag}`,RecycleData[index1].content[index2].type.slice(10)) + num}`)
-                    }
-                    //然后进行扣除物品的操作
-                    RunCmd(`clear @a[name="${player.nameTag}"] ${RecycleData[index1].content[index2].type} ${RecycleData[index1].content[index2].data} ${num}`)
-                    //然后执行加钱的操作！
-                    RunCmd(`scoreboard players add @a[name="${player.nameTag}"] money ${parseInt(RecycleData[index1].content[index2].price * GetScore("DATA","RN") / 100) * num}`)
-                    Tell(`§a>> 回收成功！您成功回收 §l${num}§r§a 个 §l${RecycleData[index1].content[index2].name}§r§a，并获得了 §l${parseInt(RecycleData[index1].content[index2].price * GetScore("DATA","RN") / 100) * num} §r§a能源币！期待您的下次光临！`,player.nameTag)
-                    break;
-                case 1:
-                    Tell("§c>> 回收失败！原因是您自己取消了本次回收！",player.nameTag)
-                    break;
-            }
-        })
-    },
+    // //开始发送确认回收的表单
+    // ShopSellSub(player,index1,index2,num) {
+    //     const ShopSellSubForm = new MessageFormData()
+    //         .title("§c§l确认回收 " + RecycleData[index1].content[index2].name)
+    //         .body("§e您确定要以 §l" + parseInt(RecycleData[index1].content[index2].price *  GetScore("DATA","RN") / 100) * num + "§r§e 能源币的报酬，回收 §l" + num + " §r§e个" + RecycleData[index1].content[index2].name + "?\n§c§l注意：所有商品一旦回收无法逆转！")
+    //         .button1("§c§l取消")
+    //         .button2("§a§l确定")
+    //         ShopSellSubForm.show(player).then((result) => {
+    //         switch(result.selection) {
+    //             case 0:
+    //                 //首先进行判断是否有限制，有限制就直接写入相关数据
+    //                 if (RecycleData[index1].content[index2].lim) {
+    //                     // PlayerRecycleData[player.nameTag][RecycleData[index1].content[index2].type] = PlayerRecycleData[player.nameTag][RecycleData[index1].content[index2].type] + num
+    //                     RunCmd(`scoreboard players set ${RecycleData[index1].content[index2].type.slice(10)} R:${player.nameTag.slice(0,10)} ${GetScore(`R:${player.nameTag.slice(0,10)}`,RecycleData[index1].content[index2].type.slice(10)) + num}`)
+    //                 }
+    //                 //然后进行扣除物品的操作
+    //                 RunCmd(`clear @a[name="${player.nameTag}"] ${RecycleData[index1].content[index2].type} ${RecycleData[index1].content[index2].data} ${num}`)
+    //                 //然后执行加钱的操作！
+    //                 RunCmd(`scoreboard players add @a[name="${player.nameTag}"] money ${parseInt(RecycleData[index1].content[index2].price * GetScore("DATA","RN") / 100) * num}`)
+    //                 Tell(`§a>> 回收成功！您成功回收 §l${num}§r§a 个 §l${RecycleData[index1].content[index2].name}§r§a，并获得了 §l${parseInt(RecycleData[index1].content[index2].price * GetScore("DATA","RN") / 100) * num} §r§a能源币！期待您的下次光临！`,player.nameTag)
+    //                 break;
+    //             case 1:
+    //                 Tell("§c>> 回收失败！原因是您自己取消了本次回收！",player.nameTag)
+    //                 break;
+    //         }
+    //     })
+    // },
     /////////////////////////////////////////////
 
     //氧气装备菜单
@@ -1298,6 +882,9 @@ const guiAPI = {
                     break;
                 case 2:
                     this.OxygenEqu(player)
+                    break;
+                case 3:
+                    Tell(`§7>> 开发中内容，敬请期待！`)
                     break;
             }
         })
@@ -1407,10 +994,15 @@ const guiAPI = {
         } else {
             ActionBarForm.dropdown("物价指数显示方式",["不显示","显示"],0)
         }
+        if (player.hasTag("ShowStamina")) {
+            ActionBarForm.dropdown("体力值显示方式",["不显示","显示"],1)
+        } else {
+            ActionBarForm.dropdown("体力值显示方式",["不显示","显示"],0)
+        }
         //
         ActionBarForm.show(player).then((result) => {
             if (!result.canceled) {
-                let Tags = ["ShowActionbar","ShowOxygenName","ShowOxygen1","ShowOxygen2","ShowOxygen3","ShowOxygen4","ShowMoney","ShowTime","ShowRN"]
+                let Tags = ["ShowActionbar","ShowOxygenName","ShowOxygen1","ShowOxygen2","ShowOxygen3","ShowOxygen4","ShowMoney","ShowTime","ShowRN","ShowStamina"]
                 for (let i = 0; i < Tags.length; i++) {
                     RunCmd(`tag "${player.nameTag}" remove ${Tags[i]}`)
                 }
@@ -1431,6 +1023,9 @@ const guiAPI = {
                 }
                 if (result.formValues[5] == 1) {
                     RunCmd(`tag "${player.nameTag}" add ShowRN`)
+                }
+                if (result.formValues[6] == 1) {
+                    RunCmd(`tag "${player.nameTag}" add ShowStamina`)
                 }
                 Tell("§e>> 标题栏设置更改成功！",player.nameTag)
             }
@@ -1465,6 +1060,9 @@ const guiAPI = {
             .dropdown("请选择本次传送的模式：",["将自己传送至目标玩家","将目标玩家传送至自己这里"],0)
             .dropdown("请选择要传送的玩家：",playersName,0)
             TpaSubForm.show(player).then(result => {
+                if (result.canceled) {
+                    this.TpaMain(player)
+                }
                 if (result.formValues[0] == 0) {
                     this.ApplyTpa1(playerList[result.formValues[1]],player)
                 } else if (result.formValues[0] == 1) {
@@ -1478,10 +1076,9 @@ const guiAPI = {
         let BanList = [];
         let ScoreBoards = world.scoreboard.getObjectives()
         for (let i = 0; i < ScoreBoards.length; i++) {
-            if (ScoreBoards[i].id == "T:" + AcceptPlayer.nameTag) {
+            if (ScoreBoards[i].id == "T:" + AcceptPlayer.nameTag.slice(0,10)) {
                 for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
-                    Broadcast(`${ScoreBoards[i].getParticipants()[j].displayName}`)
-                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName)
+                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName.slice(1))
                     break;
                 }
                 break;
@@ -1521,9 +1118,9 @@ const guiAPI = {
         let BanList = [];
         let ScoreBoards = world.scoreboard.getObjectives()
         for (let i = 0; i < ScoreBoards.length; i++) {
-            if (ScoreBoards[i].id == "T:" + AcceptPlayer.nameTag) {
+            if (ScoreBoards[i].id == "T:" + AcceptPlayer.nameTag.slice(0,10)) {
                 for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
-                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName)
+                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName.slice(1))
                     break;
                 }
                 break;
@@ -1572,9 +1169,9 @@ const guiAPI = {
         let BanList = ["选择下拉列表玩家后提交"];
         let ScoreBoards = world.scoreboard.getObjectives()
         for (let i = 0; i < ScoreBoards.length; i++) {
-            if (ScoreBoards[i].id == "T:" + player.nameTag) {
+            if (ScoreBoards[i].id == "T:" + player.nameTag.slice(0,10)) {
                 for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
-                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName)
+                    BanList.push(ScoreBoards[i].getParticipants()[j].displayName.slice(1))
                     HaveData = true;
                     break;
                 }
@@ -1582,8 +1179,8 @@ const guiAPI = {
             }
         }
         if (!HaveData) {
-            if (world.scoreboard.getObjective(`T:${player.nameTag}`) == null) {
-                world.scoreboard.addObjective(`T:${player.nameTag}`,`T:${player.nameTag}`);
+            if (world.scoreboard.getObjective(`T:${player.nameTag.slice(0,10)}`) == null) {
+                world.scoreboard.addObjective(`T:${player.nameTag.slice(0,10)}`,`T:${player.nameTag.slice(0,10)}`);
             }
         }
         const TpaSetupForm = new ModalFormData()
@@ -1602,13 +1199,12 @@ const guiAPI = {
                 }
                 if (result.formValues[1] != 0) {
                     Tell(`§c>> 已把玩家 ${playersName[result.formValues[1]]} 成功加入传送黑名单！`,player.nameTag)
-                    RunCmd(`scoreboard players set ${playersName[result.formValues[1]]} T:${player.nameTag} 0`)
+                    RunCmd(`scoreboard players set "@${playersName[result.formValues[1]]}" T:${player.nameTag.slice(0,10)} 0`)
                 }
                 if (result.formValues[2] != 0) {
                     Tell(`§a>> 已把玩家 ${playersName[result.formValues[2]]} 成功从传送黑名单移除！`,player.nameTag)
-                    RunCmd(`scoreboard players reset ${playersName[result.formValues[2]]} T:${player.nameTag}`);
+                    RunCmd(`scoreboard players reset "@${playersName[result.formValues[2]]}" T:${player.nameTag.slice(0,10)}`);
                 }
-
             })
     },
 
@@ -1709,20 +1305,216 @@ const guiAPI = {
         })
     },
     /////////////////////////////////////////////
+    //FLY{"NIA":{x:0,y:0,z:0}}
+    Fly(player) {
+        if (player.hasTag("CanFly")) {
+            const FlyForm = new ActionFormData()
+            .title("飞行系统")
+            .body("§r§l===========================" + "§r\n§e欢迎使用飞行系统!\n您已经是授权玩家，请自行遵守飞行系统准则！否则会被永远取消飞行系统使用资格！\n飞行系统在使用期间氧气消耗为原有消耗速度的15倍，请注意氧气消耗" + "\n§r§l===========================")
+            .button("开启飞行模式")
+            .button("关闭飞行模式")
+            .button("返回上一级菜单")
+            FlyForm.show(player).then(result => {
+                switch (result.selection) {
+                    case 0:
+                        player.addTag("fly")
+                        RunCmd(`ability "${player.nameTag}" mayfly true`)
+                        RunCmd(`title "${player.nameTag}" title §a飞行模式 开启`)
+                        RunCmd(`title "${player.nameTag}" subtitle §7注意氧气值消耗哦！ 退出服务器记得关闭哦`)
+                        break
+                    case 1:
+                        player.removeTag("fly")
+                        RunCmd(`title "${player.nameTag}" title §c飞行模式 关闭`)
+                        RunCmd(`title "${player.nameTag}" subtitle §7今天有好好遵守使用规则嘛？`)
+                        player.kill()
+                        RunCmd(`ability @a[name="${player.nameTag}",m=!c] mayfly false`)
+                        break
+                    case 2:
+                        this.Main(player)
+                        break
+                }
+            })
+        } else {
+            RunCmd(`scoreboard players add @a UUID 0`)
+            if (GetScore("equLevel",player.nameTag) >= 13 && GetScore("UUID",player.nameTag) == 0) {
+                const FlyForm = new ActionFormData()
+                .title("申请使用飞行系统")
+                .body("§r§l===========================" + "§r\n§e欢迎使用飞行系统!\n您暂时不是授权玩家，无法使用飞行系统\n您可以尝试使用5000能源币购买使用资格后申请使用飞行系统\n§c§l但值得注意的是，在您购买使用资格后我们运营团队会对申请玩家进行申请人工复核，如果您原来在服务器有不利的记录，您仍有概率无法获得飞行系统使用资格，即使审核不通过，服务器也不会退掉您购买的使用资格费用，介意者请不要购买！\n§r§e请在购买后将UUID发给服主获取对应的激活码！" + "\n§r§l===========================")
+                .button("购买使用资格")
+                .button("返回上一层")
+                .show(player).then(result => {
+                    if (result.selection == 0) {
+                        if (GetScore("money",player.nameTag) >= 5000) {
+                            RunCmd(`scoreboard players add @a[name="${player.nameTag}"] money -5000`)
+                            RunCmd(`scoreboard players add @a UUID 0`)
+                            let Participants = world.scoreboard.getObjective("UUID").getParticipants();
+                            let UUID = 0
+                            for (let i = 0; i < Participants.length; i++) {
+                                if (Participants[i].displayName == player.nameTag) {
+                                    UUID = world.scoreboard.getObjective("UUID").getScore(Participants[i]);
+                                    if (UUID == 0) {
+                                        UUID = 100000 + Math.floor(Math.random() * 100000);
+                                        RunCmd(`scoreboard players set @a[name=${player.nameTag}] UUID ${UUID}`);
+                                        Tell(`§c>> 您第一次获取UUID，已经为您获取的UUID为：§a${UUID}§c，请发给腐竹获取飞行系统激活码！`,player.nameTag);
+                                    } else {
+                                        Tell(`§c>> 您的UUID为：§a${UUID}§c，请发给腐竹获取飞行系统验证码！`,player.nameTag);
+                                    }
+                                    break;
+                                }
+                            }
+                        } else {
+                            Tell(`§c>> 余额不足，请尝试攒够5000能源币后再次尝试购买！`)
+                        }
+                    } else if (result.selection == 1) {
+                        this.Main(player)
+                    }
+                })
+            } else if (GetScore("equLevel",player.nameTag) >= 13 && GetScore("UUID",player.nameTag) != 0) {
+                let UUID = GetScore("UUID",player.nameTag)
+                const FlyForm = new ModalFormData()
+                .title("§c§l您的UUID为 " + UUID)
+                .textField("请输入飞行系统激活码","请不要尝试破解（")
+                .show(player).then(result => {
+                    let password = result.formValues[0];
+                    if (!isNaN(parseInt(Number(result.formValues[0])))) {
+                        if (password == parseInt(((UUID * 12345) + 65432) / 9876 + 100000)) {
+                            Tell(`§a>> 验证码正确！您已获得相关权限！`,player.nameTag);
+                            RunCmd(`tag "${player.nameTag}" add CanFly`)
+                        } else {
+                            Tell(`§c>> 您输入的激活码不正确，请再次重试！如果您还未获得激活码，请将您的UUID§a${UUID}§c发给腐竹获取飞行系统激活码！`,player.nameTag);
+                            this.Fly(player)
+                        }
+                    } else {
+                        Tell(`§c>> 您输入的激活码不正确，请再次重试！如果您还未获得激活码，请将您的UUID§a${UUID}§c发给腐竹获取飞行系统激活码！`,player.nameTag);
+                        this.Fly(player)
+                    }
+                })
+            } else {
+                const FlyForm = new ActionFormData()
+                .title("申请使用飞行系统")
+                .body("§r§l===========================" + "§r\n§c欢迎使用飞行系统!\n您暂时不是授权玩家，无法使用飞行系统\n飞行系统仅支持X级呼吸装备Ⅴ以上的玩家使用,您暂时无法申请使用飞行系统！\n请在尝试升级到足够等级的呼吸装备后尝试申请！" + "\n§r§l===========================")
+                .button("返回上一层界面")
+                .show(player).then(result => {
+                    if (result.selection == 0) {
+                        this.Main(player)
+                    }
+                })
+            }
+            // RunCmd(`scoreboard players add @a UUID 0`)
+            // let Participants = world.scoreboard.getObjective("UUID").getParticipants();
+            // let UUID = 0
+            // for (let i = 0; i < Participants.length; i++) {
+            //     if (Participants[i].displayName == t.sender.nameTag) {
+            //         UUID = world.scoreboard.getObjective("UUID").getScore(Participants[i]);
+            //         if (UUID == 0) {
+            //             UUID = 100000 + Math.floor(Math.random() * 100000);
+            //             RunCmd(`scoreboard players set @a[name=${t.sender.nameTag}] UUID ${UUID}`);
+            //             Tell(`§c>> 您第一次获取UUID，已经为您获取的UUID为：§a${UUID}§c，请发给腐竹获取飞行验证码！`,t.sender.nameTag);
+            //         } else {
+            //             Tell(`§c>> 您的UUID为：§a${UUID}§c，请发给腐竹获取飞行验证码！`,t.sender.nameTag);
+            //         }
+            //         break;
+            //     }
+            // }
+        }
+    },
+
+    /////////////////////////////////////////////
 
     Transfer(player) {
         const TransferForm = new ActionFormData()
         .title("转账系统")
-        .body("§r§l===========================" + "\n§r§e欢迎使用转账系统！\n§c所有转账请在提前告知对方的前提下转账\n否则如果因为对方下线造成转账失败后果自负\n所有转账均不可逆，请慎重考虑后使用" + "\n§r§l===========================" + "\n§r§e能源币转账单笔10000以下不收取费用\n单笔转账超出10000货币的收取0.5%的服务费" + "\n氧气值转账每次将随机失去5-50%的氧气值\n请谨慎考虑！" + "\n§r§l===========================")
+        .body("§r§l===========================" + "\n§r§e欢迎使用转账系统！\n§c所有转账请在提前告知对方的前提下转账\n否则如果因为对方下线造成转账失败后果自负\n所有转账均不可逆，请慎重考虑后使用" + "\n§r§l===========================" + "\n§r§e能源币转账单笔10000以下不收取费用\n单笔转账超出10000货币的收取百分之0.5的服务费\n能源币单笔转账最大数量为100000能源币\n氧气值转账每次将随机失去百分之5-50的氧气值\n请谨慎考虑！" + "\n§r§l===========================")
         .button("能源币转账")
         .button("氧气值转账")
+        .button("返回上一级页面")
         TransferForm.show(player).then(result => {
             if (result.selection == 0) {
-                this.TpaSub(player)
+                this.TFmoney(player)
             } else if (result.selection == 1) {
-                this.TpaSetup(player)
+                this.TFoxygen(player)
+            } else if (result.selection == 2) {
+                this.Main(player)
             }
         })
+    },
+
+    TFmoney(player) {
+        let players = world.getPlayers()
+        let playerList = Array.from(players);
+        let playersName = ["请选择在线玩家后提交"]
+        for (let i = 0; i < playerList.length; i++) {
+            if (playerList[i].nameTag != player.nameTag) {
+                playersName.push(playerList[i].nameTag)
+            }
+            // playersName.push(playerList[i].nameTag)
+        }
+        const TFmoney = new ModalFormData()
+            .title("能源币转账系统")
+            .dropdown("请选择转账目标玩家",playersName)
+            .textField("请输入转账数目","只能输入正整数！")
+            // if (GetScore("money",player.nameTag) >= 100000) {
+            //     TFmoney.slider("请选择转账数目",1,100000,10)
+            // } else {
+            //     TFmoney.slider("请选择转账数目",1,GetScore("money",player.nameTag),1,1)
+            // }
+        TFmoney.show(player).then(result => {
+            if (result.canceled) {
+                this.Transfer(player)
+            }
+            if (result.formValues[0] == 0) {
+                Tell(`§c>> 请选择有效的玩家对象！`,player.nameTag)
+            } else {
+                //开始判断数据
+                if (parseInt(result.formValues[1]) <= 0 || isNaN(parseInt(Number(result.formValues[1])))) {
+                    Tell(`§c>> 错误的转账数字格式，请重新输入！`,player.nameTag)
+                } else if (parseInt(result.formValues[1]) >= GetScore("money",player.nameTag)) {
+                    Tell(`§c>> 您输入的转账数额过大，您的余额不足，请重新输入！`,player.nameTag)
+                } else {
+                    RunCmd(`scoreboard players add @a[name="${player.nameTag}"] money -${parseInt(result.formValues[1])}`)
+                    if (result.formValues[1] <= 10000) {
+                        RunCmd(`scoreboard players add @a[name="${playersName[result.formValues[0]]}"] money ${parseInt(result.formValues[1])}`)
+                        Tell(`§a>> 转账成功！您已经成功向玩家 §6${playersName[result.formValues[0]]} §a转账§6 ${parseInt(result.formValues[1])} §a能源币！（本次操作免手续费）`,player.nameTag)
+                        Tell(`§a>> 您有一笔转账到账！您已收到玩家§6 ${player.nameTag} §a向您转账的§6 ${parseInt(result.formValues[1])} §a能源币！（本次操作免手续费）`,playersName[result.formValues[0]])
+                    } else {
+                        RunCmd(`scoreboard players add @a[name="${playersName[result.formValues[0]]}"] money ${parseInt(result.formValues[1] * 0.995)}`)
+                        Tell(`§a>> 转账成功！您已经成功向玩家§6 ${playersName[result.formValues[0]]} §a转账§6 ${parseInt(result.formValues[1])} §a能源币！（本次操作收取§6 ${parseInt(result.formValues[1] * 0.005)} §a手续费）`,player.nameTag)
+                        Tell(`§a>> 您有一笔转账到账！您已收到玩家§6 ${player.nameTag} §a向您转账的§6 ${parseInt(result.formValues[1])} §a能源币！（本次操作收取§6 ${parseInt(result.formValues[1] * 0.005)} §a手续费，故您实际收到§6 ${parseInt(result.formValues[1] * 0.995)} §a能源币）`,playersName[result.formValues[0]])
+                    }
+                }
+            }
+        })
+
+    },
+
+    TFoxygen(player) {
+        let players = world.getPlayers()
+        let playerList = Array.from(players);
+        let playersName = ["请选择在线玩家后提交"]
+        for (let i = 0; i < playerList.length; i++) {
+            if (playerList[i].nameTag != player.nameTag) {
+                playersName.push(playerList[i].nameTag)
+            }
+        }
+        const TFmoney = new ModalFormData()
+            .title("氧气转移系统")
+            .dropdown("请选择氧气转移目标玩家",playersName)
+            TFmoney.slider("请选择转账数目",1,GetScore("oxygen",player.nameTag),1,1)
+        TFmoney.show(player).then(result => {
+            if (result.canceled) {
+                this.Transfer(player)
+            }
+            if (result.formValues[0] == 0) {
+                Tell(`§c>> 请选择有效的玩家对象！`,player.nameTag)
+            } else {
+                RunCmd(`scoreboard players add @a[name="${player.nameTag}"] oxygen -${parseInt(result.formValues[1])}`)
+                let ReciveOxygen = Math.round(result.formValues[1] * ((Math.random() * 45 + 50) / 100))
+                RunCmd(`scoreboard players add @a[name="${playersName[result.formValues[0]]}"] oxygen ${ReciveOxygen}`)
+                Tell(`§a>> 氧气转移成功！您已经成功向玩家§6 ${playersName[result.formValues[0]]} §a转移§6 ${parseInt(result.formValues[1])} §a氧气值！（本次操作损失§6 ${parseInt(result.formValues[1]) - ReciveOxygen} §a氧气值）`,player.nameTag)
+                Tell(`§a>> 氧气转移成功！您已收到玩家§6 ${player.nameTag} §a向您转移的§6 ${parseInt(result.formValues[1])} §a氧气值！（本次操作损失§6 ${parseInt(result.formValues[1]) - ReciveOxygen} §a氧气值，故您实际收到§6 ${ReciveOxygen} §a氧气值）`,playersName[result.formValues[0]])
+            }
+        })
+
     },
 
     /////////////////////////////////////////////
@@ -1734,7 +1526,7 @@ const guiAPI = {
         CheckOPForm.show(player).then(result => {
             if (result.canceled) {
                 this.Main(player)
-            } else if (result.formValues[0] == "1") {
+            } else if (result.formValues[0] == "NIA") {
                 this.OpMain(player)
             } else {
                 Tell("§c>> 未经授权的访问！您的本次访问已被服务器记录！",player.nameTag)
@@ -1755,6 +1547,12 @@ const guiAPI = {
         .button("§c紧急预案Ⅰ")
         .show(player).then(result => {
             switch (result.selection) {
+                case 0:
+                    Tell("§c>> 开发中内容！",player.nameTag)
+                    break;
+                case 1:
+                    Tell("§c>> 开发中内容！",player.nameTag)
+                    break;
                 case 2:
                     this.AddCDKMain(player)
                     break;
@@ -1762,7 +1560,13 @@ const guiAPI = {
                     this.SetCDK(player)
                     break;
                 case 4:
-                    this.OpSetData(player)
+                    Tell("§c>> 开发中内容！",player.nameTag)
+                    break;
+                case 5:
+                    Tell("§c>> 开发中内容！",player.nameTag)
+                    break;
+                case 6:
+                    Tell("§c>> 开发中内容！",player.nameTag)
                     break;
             }
         })
@@ -1885,10 +1689,11 @@ const guiAPI = {
     SetCDK(player) {
         const SetCDKForm = new ActionFormData()
             .title("设置CDK码")
-            .body("www")
+            .body("§c服主提醒：\n请勿擅自更改CDK数据\n特别是已经发行的CDK\n防止同一CDK出现奖励不同的后果！")
             .button("§c返回上一层")
             let ScoreBoards = world.scoreboard.getObjectives()
-            for (let i = 0; i < ScoreBoards.length; i++) {
+            let i = 0
+            for (i = 0; i < ScoreBoards.length; i++) {
                 if (ScoreBoards[i].id == "CDK") {
                     for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
                         if (ScoreBoards[i].getParticipants()[j].displayName.slice(0,1) == "S") {
@@ -1904,23 +1709,161 @@ const guiAPI = {
             if (result.selection == 0) {
                 this.OpMain(player)
             } else {
-                this.SetCDKSub(player,ScoreBoards[i].getParticipants()[j].displayName)
+                this.SetCDKSub(player,ScoreBoards[i].getParticipants()[result.selection - 1].displayName)
             }
         })
     },
 
     SetCDKSub(player,CDKData) {
+        let Str = "§c服主提醒：\n已创建的CDK不支持更改CDK码\n如果想要更改CDK码请删除该CDK后再次创建！\n§r§e已经兑换过本CDK的玩家ID：\n§6"
         const SetCDKSubForm = new ActionFormData()
-        SetCDKSubForm.title("修改CDK")
-        SetCDKSubForm.body("已创建的CDK不支持更改CDK码\n如果想要更改CDK码请删除该CDK后再次创建！")
+        SetCDKSubForm.title("修改CDK-" + CDKData.slice(2,CDKData.indexOf("@")))
+        let ScoreBoards = world.scoreboard.getObjectives()
+        for (let i = 0; i < ScoreBoards.length; i++) {
+            if (ScoreBoards[i].id == "C:" + CDKData.slice(2,CDKData.indexOf("@"))) {
+                for (let j = 0; j < ScoreBoards[i].getParticipants().length; j++) {
+                    Str = Str + ScoreBoards[i].getParticipants()[j].displayName + "\n"
+                }
+                break;
+            }
+        }
+        SetCDKSubForm.body(Str)
         SetCDKSubForm.button("返回上一级页面")
         SetCDKSubForm.button("编辑CDK信息")
         SetCDKSubForm.button("§c删除CDK")
+        SetCDKSubForm.show(player).then(result => {
+            if (result.selection == 0) {
+                this.SetCDK(player);
+            } else if (result.selection == 1) {
+                this.ChangeCDK(player,CDKData)
+            } else if (result.selection == 2) {
+                this.RemoveCDK(player,CDKData)
+            }
+        })
+    },
+
+    ChangeCDK(player, CDKData) {
+        const ChangeCDKForm = new ModalFormData()
+        ChangeCDKForm.title("修改CDK-" + CDKData.slice(2,CDKData.indexOf("@")))
+        if (CDKData.slice(0,1) == "S") {
+            ChangeCDKForm.textField("计分板名称","请仔细检查后填写！",CDKData.slice(CDKData.indexOf("@") + 1,CDKData.indexOf("#")))
+            ChangeCDKForm.textField("增加目标计分板的值","只能输入阿拉伯数字！",CDKData.slice(CDKData.indexOf("#") + 1))
+            ChangeCDKForm.textField("CDK可兑换的最大数量","只能输入阿拉伯数字！",GetScore("CDK",CDKData).toString())
+        } else if (CDKData.slice(0,1) == "I") {
+            ChangeCDKForm.textField("物品名称（ID）","请仔细检查后填写！",CDKData.slice(CDKData.indexOf("@") + 1,CDKData.indexOf("#")))
+            ChangeCDKForm.textField("物品数量","只能输入阿拉伯数字！",CDKData.slice(CDKData.indexOf("#") + 1,CDKData.indexOf("$")))
+            ChangeCDKForm.textField("物品特殊值","只能输入阿拉伯数字！",CDKData.slice(CDKData.indexOf("$") + 1))
+            ChangeCDKForm.textField("CDK可兑换的最大数量","只能输入阿拉伯数字！",GetScore("CDK",CDKData).toString())
+        }
+        ChangeCDKForm.show(player).then(result => {
+            if (result.canceled) {
+                this.SetCDKSub(player,CDKData)
+            }
+            if (CDKData.slice(0,1) == "S") {
+                if (result.formValues[0] == "" || result.formValues[1] == "" || result.formValues[2] == "") {
+                    Tell(`§C>> 错误的CDK数据格式！请重新检查后重新输入！`)
+                } else {
+                    RunCmd(`scoreboard players set "S!${CDKData.slice(2,CDKData.indexOf("@"))}@${result.formValues[0]}#${parseInt(result.formValues[1])}" CDK ${parseInt(result.formValues[2])}`)
+                    Tell("§a>> CDK码 " + CDKData.slice(2,CDKData.indexOf("@")) + " 修改成功！校验值：S!" + CDKData.slice(2,CDKData.indexOf("@")) + "@" + result.formValues[0] + "#" + parseInt(result.formValues[1]) + " NUM: " + parseInt(result.formValues[2]),player.nameTag)
+                }
+            } else if (CDKData.slice(0,1) == "I") {
+                if (result.formValues[0] == "" || result.formValues[1] == "" || result.formValues[2] == "" || result.formValues[3] == "") {
+                    Tell(`§C>> 错误的CDK数据格式！请重新检查后重新输入！`)
+                } else {
+                    RunCmd(`scoreboard players set "I!${CDKData.slice(2,CDKData.indexOf("@"))}@${result.formValues[0]}#${parseInt(result.formValues[1])}$${parseInt(result.formValues[2])}" CDK ${parseInt(result.formValues[3])}`)
+                    Tell("§a>> CDK码 " + CDKData.slice(2,CDKData.indexOf("@")) + " 修改成功！校验值：I!" + CDKData.slice(2,CDKData.indexOf("@")) + "@" + result.formValues[0] + "#" + parseInt(result.formValues[1]) + "$" + parseInt(result.formValues[2]) + " NUM: " + parseInt(result.formValues[3]),player.nameTag)
+                }
+            }
+        })
+    },
+
+    RemoveCDK(player, CDKData) {
+        const RemoveCDKForm = new MessageFormData()
+        .title("§c§l删除CDK-" + CDKData.slice(2,CDKData.indexOf("@")))
+        .body("§e是否§c删除§eCDK §l§6 " + CDKData.slice(2,CDKData.indexOf("@")) + " §r§e？ \n§r§e一旦删除数据将无法恢复！请谨慎操作！")
+        .button1("§c§l>>删除CDK<<")
+        .button2("§a返回上一级页面")
+        RemoveCDKForm.show(player).then(result => {
+            if (result.selection == 0) {
+                this.SetCDKSub(player,CDKData)
+            } else if (result.selection == 1) {
+                RunCmd(`scoreboard players reset "${CDKData}" CDK`)
+                RunCmd(`scoreboard objectives remove "C:${CDKData.slice(2,CDKData.indexOf("@"))}"`)
+                Tell(`§a>> CDK ${CDKData.slice(2,CDKData.indexOf("@"))} 删除成功！校验值： ${CDKData} §c如果误删请将本条信息截图发给服主！`,player.nameTag)
+            }
+        })
 
     },
 
-    OpSetData(player) {
-        
+    /////////////////////////////////////////////
+    CreIsland(player) {
+        let i = 1
+        const CreIslandForm = new ActionFormData()
+        .title("创建空岛")
+        if (player.hasTag("HaveIsland")) {
+            CreIslandForm.body("§l===========================" + "\n§r§c您已经拥有相关空岛\n您可以点击主页面“返回主岛”按钮\n快速返回主岛\n如果你没有创建空岛却出现了本界面请及时联系服主！\n如果您想废弃您原有的空岛，重新领取空岛，可以联系服主支付6666手续费后重新领取！" + "\n§r§l===========================")
+            CreIslandForm.button("§c退出创建空岛！")
+            CreIslandForm.show(player)
+        } else {
+            let Str = "§r§l===========================\n§r§6欢迎使用空岛创建系统\n§c请务必认真阅读以下的说明：§6\n以下是各种空岛的描述，您可以根据自己的喜好选择自己想要的空岛！\n在选择好相应的空岛后您可以点击下方的§c“开始创建”§6按钮运行下面的程序！\n同时您也可以选择不创建空岛,选择和其他玩家一起在一个空岛(别人创建的)生存\n选择本种玩法请点击§c“和其他玩家一同游玩”§6按钮\n§r§l==========================="
+            for (let structure in IslandData) {
+                Str = Str + "\n§r§e空岛名称：§6 #" + i + " " + IslandData[structure].name + "\n§r§e描述：§6" + IslandData[structure].description + "\n§r§l==========================="
+                i++
+            }
+            // Str = Str + "\n§r§l==========================="
+            CreIslandForm.body(Str)
+            CreIslandForm.button("§a开始创建")
+            CreIslandForm.button("§c和其他玩家一同游玩")
+            CreIslandForm.show(player).then(result => {
+                if (result.selection == 0) {
+                    this.ChooseIsland(player)
+                } else if (result.selection == 1) {
+                    Tell("§c>> 开发中内容，敬请期待！",player.nameTag)
+                }
+            })
+        }
+    },
+
+    ChooseIsland(player) {
+        let i = 1
+        const ChooseIslandForm = new ActionFormData()
+        .title("创建空岛")
+        .body("请谨慎选择自己的空岛哦！")
+        .button("返回上一级菜单")
+        for (let structure in IslandData) {
+            ChooseIslandForm.button("§c空岛样式编号：#" + i + " 空岛名称：" + IslandData[structure].name)
+            i++
+        }
+        ChooseIslandForm.show(player).then(result => {
+            if (result.selection == 0) {
+                this.CreIsland(player)
+            } else {
+                this.ChooseIslandSub(player, result.selection)
+            }
+        })
+    },
+
+    ChooseIslandSub(player,key) {
+        const ChooseIslandSubForm = new MessageFormData()
+        .title("确认空岛选择")
+        let i = 1
+        for (let structure in IslandData) {
+            if (i == key) {
+                ChooseIslandSubForm.body("§e您确认要以 §6" + IslandData[structure].name + " §e样式创建空岛嘛？\n§c一旦确定无法更改哦！请谨慎考虑！")
+                break;
+            }
+            i++
+        }
+        ChooseIslandSubForm.button1("§a确认创建空岛")
+        ChooseIslandSubForm.button2("§c重新选择样式")
+        ChooseIslandSubForm.show(player).then(result => {
+            if (result.selection == 1) {
+                RunCmd(`tag ${player.nameTag} add ISLAND${i}`)
+                RunCmd(`tag ${player.nameTag} add CringIsland`)
+            } else if (result.selection == 0) {
+                this.ChooseIsland(player)
+            }
+        })
     }
 }
 
@@ -1935,32 +1878,173 @@ world.events.beforeItemUse.subscribe(event => {
     }
 })
 
+
+//玩家死亡后重生的检测
+// world.events.playerSpawn.subscribe(event => {
+//     if (!event.initialSpawn) {
+//         Broadcast(event.player.nameTag)
+//     }
+// })
+
+// world.events.beforeExplosion.subscribe(event => {
+//     Broadcast(event.source.typeId)
+//     if (event.source.typeId == "minecraft:creeper") {
+//         event.cancel = true
+//     }
+// })
+
 //控制每时每刻执行的事件！
 world.events.tick.subscribe(t => {
-    RunCmd(`scoreboard players add @a oxygen 0`)
-    RunCmd(`scoreboard players add @a equLevel 0`)
-    RunCmd(`scoreboard players add @a actionbar 0`)
-    RunCmd(`scoreboard players add @a time 0`)
-    RunCmd(`scoreboard players add @a money 0`)
-    RunCmd(`scoreboard players add @a AnoxicTime 0`)
+    RunCmd(`gamemode a @a[tag=!op,tag=!mining,m=!a,x=559,y=67,z=562,r=700]`)
+    RunCmd(`tag @a remove mining`)
+    RunCmd(`tag @a[x=725,y=3,z=539,dx=89,dy=69,dz=30] add mining`)
+    RunCmd(`scoreboard players add @a[x=725,y=3,z=539,dx=89,dy=71,dz=30,tag=mining] miningTime -1`)
+    RunCmd(`title @a[x=725,y=3,z=539,dx=89,dy=71,dz=30,scores={miningTime = ..0}] title §c矿场使用时间已到！`)
+    RunCmd(`title @a[x=725,y=3,z=539,dx=89,dy=71,dz=30,scores={miningTime = ..0}] subtitle §7请重新花费体力进入！`)
+    RunCmd(`tp @a[x=725,y=3,z=539,dx=89,dy=71,dz=30,scores={miningTime = ..0}] 702 82 554`)
+    CheckCringPlayer()
+    // RunCmd(`scoreboard players add @a oxygen 0`)
+    // RunCmd(`scoreboard players add @a equLevel 0`)
+    // RunCmd(`scoreboard players add @a actionbar 0`)
+    // RunCmd(`scoreboard players add @a time 0`)
+    // RunCmd(`scoreboard players add @a money 0`)
+    // RunCmd(`scoreboard players add @a AnoxicTime 0`)
     let players = world.getPlayers()
     let playerList = Array.from(players);
     //每秒钟执行的事件
     if (t.currentTick % 20 == 0) {
         let TIME = new Date();
+        // Broadcast(TIME.toLocaleString())
         if (TIME.getMinutes() == 0 && TIME.getSeconds() == 0 ) {
-            let RN = parseInt(Math.random() * 160) + 20
+            let RN = parseInt(getNumberInNormalDistribution(100,20))
+            //防止物价指数出现极端数值
+            if (RN <= 20 || RN >= 180) {
+                RN = 100
+            }
             RunCmd(`scoreboard players set RN DATA ${RN}`);
             RunCmd(`title @a title §c物价指数发生变动！`)
             RunCmd(`title @a subtitle §7物价指数由 §l§e${GetScore("DATA","RN") / 100} §r§7变为 §l§e${RN / 100}`)
+            RunCmd(`backup`);
+            Broadcast(`§a>> 服务器自动备份中！可能出现卡顿，请勿在此时进行较大负载活动！`)
+            if (TIME.getHours() == 16) {
+                //每天更新数据文件
+                let run_time = Date.now()
+                RunCmd(`tite @a[x=725,y=3,z=539,dx=89,dy=69,dz=30] title §c矿场已更新！`)
+                RunCmd(`tite @a[x=725,y=3,z=539,dx=89,dy=69,dz=30] subtitle §7请重新花费体力进入！`)
+                RunCmd(`tp @a[x=725,y=3,z=539,dx=89,dy=69,dz=30] 702 82 554`)
+                RunCmd(`scoreboard objectives remove miningTime`)
+                RunCmd(`scoreboard objectives add miningTime dummy 采矿时间`)
+                RunCmd(`spawnores OreChunk1 813 3 568 725 68 539`)
+                let ScoreBoards = world.scoreboard.getObjectives()
+                for (let i = 0; i < ScoreBoards.length; i++) {
+                    if (ScoreBoards[i].id.slice(0,2) == "R:") {
+                        RunCmd(`scoreboard objectives remove "${ScoreBoards[i].id}"`)
+                    }
+                }
+                run_time = Date.now() - run_time
+                Broadcast(`§a>> 服务器时间已更新！矿场已更新！本次更新用时${run_time}`)
+            }
         }
         if (TIME.getSeconds() == 0) {
+            for (let playername in posData) {
+                posData[playername].num = 0
+            }
             RunCmd(`scoreboard players add @a time 1`);
+            RunCmd(`scoreboard players add @a[scores={stamina=..159}] stamina 1`);
             for (let i = 0; i < playerList.length; i++) {
                 RunCmd(`scoreboard players add @e[name="${playerList[i].nameTag}",type=player] oxygen -${equLevelData[GetScore("equLevel",playerList[i].nameTag)].consume}`);
+                if (playerList[i].dimension.id == "minecraft:nether" && GetScore("equLevel",playerList[i].nameTag) <= 8) {
+                    RunCmd(`scoreboard players add @e[name="${playerList[i].nameTag}",type=player] oxygen -${equLevelData[GetScore("equLevel",playerList[i].nameTag)].consume}`)
+                }
+                if (playerList[i].dimension.id == "minecraft:the_end" && GetScore("equLevel",playerList[i].nameTag) <= 13) {
+                    RunCmd(`scoreboard players add @e[name="${playerList[i].nameTag}",type=player] oxygen -${equLevelData[GetScore("equLevel",playerList[i].nameTag)].consume * 2}`)
+                }
+                if (playerList[i].hasTag("fly") && GetScore("equLevel",playerList[i].nameTag) >= 13) {
+                    RunCmd(`scoreboard players add @e[name="${playerList[i].nameTag}",type=player] oxygen -${equLevelData[GetScore("equLevel",playerList[i].nameTag)].consume * 14}`)
+                }
             }
         }
         for (let i = 0; i < playerList.length; i++) {
+            if (playerList[i].dimension.id == "minecraft:the_end" || playerList[i].dimension.id == "minecraft:nether") {
+                playerList[i].removeTag("fly")
+                RunCmd(`ability @a[name="${playerList[i].nameTag}",tag=!op] mayfly false`)
+            }
+            if (!playerList[i].hasTag("shown")) {
+                playerList[i].addTag("showing")
+                // RunCmd(`tag "${playerList[i].nameTag}" add showing`)
+            }
+            //这里控制玩家氧气值不超过100%
+            if (GetScore("oxygen",playerList[i].nameTag) > equLevelData[GetScore("equLevel",playerList[i].nameTag)].max) {
+                RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] oxygen ${equLevelData[GetScore("equLevel",playerList[i].nameTag)].max}`)
+            }
+            //这里控制玩家氧气值不低于0
+            if (GetScore("oxygen",playerList[i].nameTag) < 0) {
+                RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] oxygen 0`)
+            }
+            //生命恢复
+            if (GetScore("oxygen",playerList[i].nameTag) > 3500 && GetScore("equLevel",playerList[i].nameTag) < 14) {
+                RunCmd(`effect "${playerList[i].nameTag}" regeneration 15 0 true`)
+            } else if (GetScore("oxygen",playerList[i].nameTag) > 3500 && GetScore("equLevel",playerList[i].nameTag) >= 14) {
+                RunCmd(`effect "${playerList[i].nameTag}" regeneration 15 1 true`)
+            }
+            //夜视
+            if (GetScore("equLevel",playerList[i].nameTag) > 16) {
+                RunCmd(`effect "${playerList[i].nameTag}" night_vision 15 0 true`)
+            }
+            //力量
+            if (GetScore("oxygen",playerList[i].nameTag) > 4800 && GetScore("equLevel",playerList[i].nameTag) < 16) {
+                RunCmd(`effect "${playerList[i].nameTag}" strength 15 0 true`)
+            } else if (GetScore("oxygen",playerList[i].nameTag) > 4800 && GetScore("equLevel",playerList[i].nameTag) >= 16) {
+                RunCmd(`effect "${playerList[i].nameTag}" strength 15 1 true`)
+            }
+            if (playerList[i].dimension.id == "minecraft:nether" && GetScore("equLevel",playerList[i].nameTag) <= 8) {
+                RunCmd(`effect "${playerList[i].nameTag}" slowness 15 0 true`)
+                RunCmd(`effect "${playerList[i].nameTag}" weakness 15 2 true`)
+            }
+            if (playerList[i].dimension.id == "minecraft:the_end" && GetScore("equLevel",playerList[i].nameTag) <= 13) {
+                RunCmd(`effect "${playerList[i].nameTag}" slowness 15 0 true`)
+                RunCmd(`effect "${playerList[i].nameTag}" weakness 15 3 true`)
+            }
+            if (playerList[i].hasTag("GetIsland")) {
+                guiAPI.CreIsland(playerList[i])
+                RunCmd(`tag ${playerList[i].nameTag} remove GetIsland`)
+            }
+            if (playerList[i].hasTag("died")) {
+                if (GetScore("equLevel",playerList[i].nameTag) < 17) {
+                    RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] oxygen ${parseInt(GetScore("oxygen",playerList[i].nameTag) * 0.9)}`)
+                    Tell(`§c>> 您由于死亡损失了剩余的10%的氧气值！`,playerList[i].nameTag)
+                }
+                RunCmd(`tag @a[name="${playerList[i].nameTag}"] remove died`)
+            }
+            // Broadcast(playerList[i].viewVector.length())
+            // Broadcast(`§c[NKillHacker]§r\nspeed:${((Math.pow(playerList[i].velocity.x,2) + Math.pow(playerList[i].velocity.y,2) + Math.pow(playerList[i].velocity.z,2))).toFixed(5)} \npos:${playerList[i].location.x.toFixed(4)} ${playerList[i].location.y.toFixed(4)} ${playerList[i].location.z.toFixed(4)}`)
+            let pos = {}
+            if (posData[playerList[i].nameTag]) {
+                //Broadcast((Math.pow(playerList[i].location.x.toFixed(4) - posData[playerList[i].nameTag].x,2) + Math.pow(playerList[i].location.y.toFixed(4) - posData[playerList[i].nameTag].y,2) + Math.pow(playerList[i].location.z.toFixed(4) - posData[playerList[i].nameTag].z,2)).toString())
+                if (((Math.pow(playerList[i].velocity.x,2) + Math.pow(playerList[i].velocity.y,2) + Math.pow(playerList[i].velocity.z,2))) >= 0.045 && (Math.pow(playerList[i].location.x.toFixed(4) - posData[playerList[i].nameTag].x,2) + Math.pow(playerList[i].location.y.toFixed(4) - posData[playerList[i].nameTag].y,2) + Math.pow(playerList[i].location.z.toFixed(4) - posData[playerList[i].nameTag].z,2)) <= 2) {
+                    world.getDimension("overworld").runCommandAsync(`tellraw @a[tag=op] {\"rawtext\":[{\"text\":\"§c>> 疑似 §e${playerList[i].nameTag} §c正在使用自由视角，如果本消息短期多次出现建议前往查看！注意：本消息可能是个误判！以下为该玩家的异常数据§r\nspeed:${((Math.pow(playerList[i].velocity.x,2) + Math.pow(playerList[i].velocity.y,2) + Math.pow(playerList[i].velocity.z,2))).toFixed(3)} \npos:${playerList[i].location.x.toFixed(3)} ${playerList[i].location.y.toFixed(3)} ${playerList[i].location.z.toFixed(3)}\ndistance:${(Math.pow(playerList[i].location.x.toFixed(4) - posData[playerList[i].nameTag].x,2) + Math.pow(playerList[i].location.y.toFixed(4) - posData[playerList[i].nameTag].y,2) + Math.pow(playerList[i].location.z.toFixed(4) - posData[playerList[i].nameTag].z,2)).toFixed(3).toString()}\"}]}`);
+                    posData[playerList[i].nameTag].num++
+                    if (posData[playerList[i].nameTag].num >= 5) {
+                        posData[playerList[i].nameTag].num = 0
+                        RunCmd(`ban ${playerList[i].nameTag} 1 违规使用自由视角(灵魂出窍)`)
+                    }
+                    //RunCmd(`ban ${playerList[i].nameTag} 1 违规使用自由视角(灵魂出窍)`)
+                }
+                posData[playerList[i].nameTag].x = playerList[i].location.x.toFixed(4)
+                posData[playerList[i].nameTag].y = playerList[i].location.y.toFixed(4)
+                posData[playerList[i].nameTag].z = playerList[i].location.z.toFixed(4)
+            } else {
+                //Broadcast("1")
+                pos.num = 0
+                pos.x = playerList[i].location.x.toFixed(4)
+                pos.y = playerList[i].location.y.toFixed(4)
+                pos.z = playerList[i].location.z.toFixed(4)
+                posData[playerList[i].nameTag] = pos
+            }
+            if ((Math.pow(playerList[i].velocity.x,2) + Math.pow(playerList[i].velocity.y,2) + Math.pow(playerList[i].velocity.z,2)) > 0.07 && GetScore("equLevel",playerList[i].nameTag) <= 10) {
+                RunCmd(`scoreboard players add @e[name="${playerList[i].nameTag}",type=player] oxygen -1`);
+            }
+            //  Broadcast(`${Math.pow(playerList[i].velocity.x,2) + Math.pow(playerList[i].velocity.y,2) + Math.pow(playerList[i].velocity.z,2)}`)
             if (GetScore("oxygen",playerList[i].nameTag) <= 0) {
                 RunCmd(`scoreboard players add @a[name="${playerList[i].nameTag}"] AnoxicTime 1`)
             } else {
@@ -1993,188 +2077,378 @@ world.events.tick.subscribe(t => {
                 Tell("§r======================\n§cNIA服务器医院 账单§r\n======================§c\n氧气费用 --- 20 能源币\n诊疗费用 --- 20 能源币\n转运费用 --- 10 能源币\n合计费用 --- 50 能源币§r\n======================",playerList[i].nameTag)
                 Tell("§r===============================\n§cNIA服务器自动扣费通知§r\n===============================§c\n50 能源币 已自动从您账户扣除\n如果您发现账户余额为负请及时补齐\n否则可能影响您的信誉值！§r\n===============================",playerList[i].nameTag)
             }
+            ///////////////////////////////////
+            let titleActionbar = "";
+            if(playerList[i].hasTag("ShowActionbar")) {
+                if (playerList[i].hasTag("fly")) {
+                    titleActionbar = "§c飞行模式§r "
+                }
+                //
+                if (playerList[i].hasTag("ShowOxygenName")) {
+                    titleActionbar = titleActionbar + "氧气值："
+                }
+                //
+                if (playerList[i].hasTag("ShowOxygen1") || playerList[i].hasTag("ShowOxygen2") || playerList[i].hasTag("ShowOxygen3") || playerList[i].hasTag("ShowOxygen4")) {
+                    let percent = (GetScore("oxygen",playerList[i].nameTag) / equLevelData[GetScore("equLevel",playerList[i].nameTag)].max)
+                    if (playerList[i].hasTag("ShowOxygen1")) {
+                        switch (true) {
+                            case percent >= 1:
+                                titleActionbar = titleActionbar + "§e[§a||||||||||||||||||||§6100.00%§e]"
+                                break;
+                            case percent >= 0.95:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||||||||||§6${(percent * 100).toFixed(2)}%§7§e]`
+                                break;
+                            case percent >= 0.9:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||||||||||§6${(percent * 100).toFixed(2)}%§7|§e]`
+                                break;
+                            case percent >= 0.85:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||||||||§6${(percent * 100).toFixed(2)}%§7||§e]`
+                                break;
+                            case percent >= 0.8:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||||||||§6${(percent * 100).toFixed(2)}%§7|||§e]`
+                                break;
+                            case percent >= 0.75:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||||||§6${(percent * 100).toFixed(2)}%§7||||§e]`
+                                break;
+                            case percent >= 0.7:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||||||§6${(percent * 100).toFixed(2)}%§7|||||§e]`
+                                break;
+                            case percent >= 0.65:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||||§6${(percent * 100).toFixed(2)}%§7||||||§e]`
+                                break;
+                            case percent >= 0.6:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||||§6${(percent * 100).toFixed(2)}%§7|||||||§e]`
+                                break;
+                            case percent >= 0.55:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||§6${(percent * 100).toFixed(2)}%§7||||||||§e]`
+                                break;
+                            case percent >= 0.5:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||§6${(percent * 100).toFixed(2)}%§7|||||||||§e]`
+                                break;
+                            case percent >= 0.45:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||§6${(percent * 100).toFixed(2)}%§7||||||||||§e]`
+                                break;
+                            case percent >= 0.4:
+                                titleActionbar = titleActionbar + `§e[§a||||||||§6${(percent * 100).toFixed(2)}%§7|||||||||||§e]`
+                                break;
+                            case percent >= 0.35:
+                                titleActionbar = titleActionbar + `§e[§a|||||||§6${(percent * 100).toFixed(2)}%§7||||||||||||§e]`
+                                break;
+                            case percent >= 0.3:
+                                titleActionbar = titleActionbar + `§e[§a||||||§6${(percent * 100).toFixed(2)}%§7|||||||||||||§e]`
+                                break;
+                            case percent >= 0.25:
+                                titleActionbar = titleActionbar + `§e[§a|||||§6${(percent * 100).toFixed(2)}%§7||||||||||||||§e]`
+                                break;
+                            case percent >= 0.2:
+                                titleActionbar = titleActionbar + `§e[§c||||§c${(percent * 100).toFixed(2)}%§7|||||||||||||||§e]`
+                                break;
+                            case percent >= 0.15:
+                                titleActionbar = titleActionbar + `§e[§c|||§c${(percent * 100).toFixed(2)}%§7||||||||||||||||§e]`
+                                break;
+                            case percent >= 0.1:
+                                titleActionbar = titleActionbar + `§e[§c||§c${(percent * 100).toFixed(2)}%§7|||||||||||||||||§e]`
+                                break;
+                            case percent >= 0.05:
+                                titleActionbar = titleActionbar + `§e[§c|§c${(percent * 100).toFixed(2)}%§7||||||||||||||||||§e]`
+                                break;
+                            case percent >= 0:
+                                titleActionbar = titleActionbar + `§e[§c${(percent * 100).toFixed(2)}%§7|||||||||||||||||||§e]`
+                                break;
+                            case percent < 0:
+                                titleActionbar = titleActionbar + `§e[§c0.00%§7|||||||||||||||||||§e]`
+                                break;
+                        }
+                    } else if (playerList[i].hasTag("ShowOxygen2")) {
+                        switch (true) {
+                            case percent >= 1:
+                                titleActionbar = titleActionbar + "§e[§a||||||||||||||||||||§e] §6100.00%"
+                                break;
+                            case percent >= 0.95:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||||||||||§6|§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.9:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||||||||||§6|§7|§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.85:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||||||||§6|§7||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.8:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||||||||§6|§7|||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.75:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||||||§6|§7||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.7:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||||||§6|§7|||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.65:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||||§6|§7||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.6:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||||§6|§7|||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.55:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||||§6|§7||||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.5:
+                                titleActionbar = titleActionbar + `§e[§a||||||||||§6|§7|||||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.45:
+                                titleActionbar = titleActionbar + `§e[§a|||||||||§6|§7||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.4:
+                                titleActionbar = titleActionbar + `§e[§a||||||||§6|§7|||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.35:
+                                titleActionbar = titleActionbar + `§e[§a|||||||§6|§7||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.3:
+                                titleActionbar = titleActionbar + `§e[§a||||||§6|§7|||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.25:
+                                titleActionbar = titleActionbar + `§e[§a|||||§6|§7||||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.2:
+                                titleActionbar = titleActionbar + `§e[§c||||§6|§7|||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.15:
+                                titleActionbar = titleActionbar + `§e[§c|||§6|§7||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.1:
+                                titleActionbar = titleActionbar + `§e[§c||§6|§7|||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0.05:
+                                titleActionbar = titleActionbar + `§e[§c|§6|§7||||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent >= 0:
+                                titleActionbar = titleActionbar + `§e[§6|§7|||||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+                                break;
+                            case percent < 0:
+                                titleActionbar = titleActionbar + `§e[§7||||||||||||||||||||§e] §c0.00%`
+                                break;
+                        }
+                    } else if (playerList[i].hasTag("ShowOxygen3")) {
+                        titleActionbar = titleActionbar + `§l§e${GetScore("oxygen",playerList[i].nameTag)}/${equLevelData[GetScore("equLevel",playerList[i].nameTag)].max}`
+                    } else if (playerList[i].hasTag("ShowOxygen4")) {
+                        titleActionbar = titleActionbar + `§l§e${(percent * 100).toFixed(2)}%`
+                    }
+                }
+                if (playerList[i].hasTag("ShowMoney")) {
+                    titleActionbar = titleActionbar + "§r §f能源币：§e§l" + GetScore("money",playerList[i].nameTag)
+                }
+                if (playerList[i].hasTag("ShowTime")) {
+                    titleActionbar = titleActionbar + "§r §f在线时间：§e§l" + GetScore("time",playerList[i].nameTag)
+                }
+                if (playerList[i].hasTag("ShowRN")) {
+                    titleActionbar = titleActionbar + "§r §f物价指数：§e§l" + GetScore("DATA","RN") / 100
+                }
+                if (playerList[i].hasTag("ShowStamina")) {
+                    titleActionbar = titleActionbar + "§r §f体力值：§e§l" + GetScore("stamina",playerList[i].nameTag)
+                }
+                if (GetScore("oxygen",playerList[i].nameTag) <= 200 && GetScore("oxygen",playerList[i].nameTag) > 0) {
+                    titleActionbar = titleActionbar + "§r\n§c§l您即将进入缺氧状态，请及时补充氧气！"
+                }
+                if (playerList[i].dimension.id == "minecraft:nether" && GetScore("equLevel",playerList[i].nameTag) <= 8) {
+                    titleActionbar = titleActionbar + "§r\n§c§l⚠警告！您目前呼吸装备等级过低，氧气消耗速度是原有的1倍！"
+                }
+                if (playerList[i].dimension.id == "minecraft:the_end" && GetScore("equLevel",playerList[i].nameTag) <= 13) {
+                    titleActionbar = titleActionbar + "§r\n§c§l⚠警告！您目前呼吸装备等级过低，氧气消耗速度是原有的2倍！"
+                }
+                if (GetScore("AnoxicTime",playerList[i].nameTag) > 0) {
+                    titleActionbar = titleActionbar + "§r\n§c§l⚠警告！您已经进入缺氧状态 " + GetScore("AnoxicTime",playerList[i].nameTag) + " 秒，请及时补充氧气否则将会死亡！"
+                }
+                RunCmd(`title @a[name=${playerList[i].nameTag}] actionbar ${titleActionbar}`)
+            }
         }
     }
     //这里控制标题栏显示
-    let titleActionbar = "";
-    for(let i = 0; i < playerList.length; i++) {
-        //这里控制玩家氧气值不超过100%
-        if (GetScore("oxygen",playerList[i].nameTag) > equLevelData[GetScore("equLevel",playerList[i].nameTag)].max) {
-            RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] oxygen ${equLevelData[GetScore("equLevel",playerList[i].nameTag)].max}`)
-        }
-        //这里控制玩家氧气值不低于0
-        if (GetScore("oxygen",playerList[i].nameTag) < 0) {
-            RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] oxygen 0`)
-        }
-        //这里控制玩家标题栏
-        if(playerList[i].hasTag("ShowActionbar")) {
-            //
-            if (playerList[i].hasTag("ShowOxygenName")) {
-                titleActionbar = "氧气值："
-            }
-            //
-            if (playerList[i].hasTag("ShowOxygen1") || playerList[i].hasTag("ShowOxygen2") || playerList[i].hasTag("ShowOxygen3") || playerList[i].hasTag("ShowOxygen4")) {
-                let percent = (GetScore("oxygen",playerList[i].nameTag) / equLevelData[GetScore("equLevel",playerList[i].nameTag)].max)
-                if (playerList[i].hasTag("ShowOxygen1")) {
-                    switch (true) {
-                        case percent >= 1:
-                            titleActionbar = titleActionbar + "§e[§a||||||||||||||||||||§6100.00%§e]"
-                            break;
-                        case percent >= 0.95:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||||||||||§6${(percent * 100).toFixed(2)}%§7§e]`
-                            break;
-                        case percent >= 0.9:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||||||||||§6${(percent * 100).toFixed(2)}%§7|§e]`
-                            break;
-                        case percent >= 0.85:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||||||||§6${(percent * 100).toFixed(2)}%§7||§e]`
-                            break;
-                        case percent >= 0.8:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||||||||§6${(percent * 100).toFixed(2)}%§7|||§e]`
-                            break;
-                        case percent >= 0.75:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||||||§6${(percent * 100).toFixed(2)}%§7||||§e]`
-                            break;
-                        case percent >= 0.7:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||||||§6${(percent * 100).toFixed(2)}%§7|||||§e]`
-                            break;
-                        case percent >= 0.65:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||||§6${(percent * 100).toFixed(2)}%§7||||||§e]`
-                            break;
-                        case percent >= 0.6:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||||§6${(percent * 100).toFixed(2)}%§7|||||||§e]`
-                            break;
-                        case percent >= 0.55:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||§6${(percent * 100).toFixed(2)}%§7||||||||§e]`
-                            break;
-                        case percent >= 0.5:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||§6${(percent * 100).toFixed(2)}%§7|||||||||§e]`
-                            break;
-                        case percent >= 0.45:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||§6${(percent * 100).toFixed(2)}%§7||||||||||§e]`
-                            break;
-                        case percent >= 0.4:
-                            titleActionbar = titleActionbar + `§e[§a||||||||§6${(percent * 100).toFixed(2)}%§7|||||||||||§e]`
-                            break;
-                        case percent >= 0.35:
-                            titleActionbar = titleActionbar + `§e[§a|||||||§6${(percent * 100).toFixed(2)}%§7||||||||||||§e]`
-                            break;
-                        case percent >= 0.3:
-                            titleActionbar = titleActionbar + `§e[§a||||||§6${(percent * 100).toFixed(2)}%§7|||||||||||||§e]`
-                            break;
-                        case percent >= 0.25:
-                            titleActionbar = titleActionbar + `§e[§a|||||§6${(percent * 100).toFixed(2)}%§7||||||||||||||§e]`
-                            break;
-                        case percent >= 0.2:
-                            titleActionbar = titleActionbar + `§e[§c||||§c${(percent * 100).toFixed(2)}%§7|||||||||||||||§e]`
-                            break;
-                        case percent >= 0.15:
-                            titleActionbar = titleActionbar + `§e[§c|||§c${(percent * 100).toFixed(2)}%§7||||||||||||||||§e]`
-                            break;
-                        case percent >= 0.1:
-                            titleActionbar = titleActionbar + `§e[§c||§c${(percent * 100).toFixed(2)}%§7|||||||||||||||||§e]`
-                            break;
-                        case percent >= 0.05:
-                            titleActionbar = titleActionbar + `§e[§c|§c${(percent * 100).toFixed(2)}%§7||||||||||||||||||§e]`
-                            break;
-                        case percent >= 0:
-                            titleActionbar = titleActionbar + `§e[§c${(percent * 100).toFixed(2)}%§7|||||||||||||||||||§e]`
-                            break;
-                        case percent < 0:
-                            titleActionbar = titleActionbar + `§e[§c0.00%§7|||||||||||||||||||§e]`
-                            break;
-                    }
-                } else if (playerList[i].hasTag("ShowOxygen2")) {
-                    switch (true) {
-                        case percent >= 1:
-                            titleActionbar = titleActionbar + "§e[§a||||||||||||||||||||§e] §6100.00%"
-                            break;
-                        case percent >= 0.95:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||||||||||§6|§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.9:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||||||||||§6|§7|§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.85:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||||||||§6|§7||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.8:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||||||||§6|§7|||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.75:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||||||§6|§7||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.7:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||||||§6|§7|||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.65:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||||§6|§7||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.6:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||||§6|§7|||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.55:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||||§6|§7||||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.5:
-                            titleActionbar = titleActionbar + `§e[§a||||||||||§6|§7|||||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.45:
-                            titleActionbar = titleActionbar + `§e[§a|||||||||§6|§7||||||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.4:
-                            titleActionbar = titleActionbar + `§e[§a||||||||§6|§7|||||||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.35:
-                            titleActionbar = titleActionbar + `§e[§a|||||||§6|§7||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.3:
-                            titleActionbar = titleActionbar + `§e[§a||||||§6|§7|||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.25:
-                            titleActionbar = titleActionbar + `§e[§a|||||§6|§7||||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.2:
-                            titleActionbar = titleActionbar + `§e[§c||||§6|§7|||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.15:
-                            titleActionbar = titleActionbar + `§e[§c|||§6|§7||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.1:
-                            titleActionbar = titleActionbar + `§e[§c||§6|§7|||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0.05:
-                            titleActionbar = titleActionbar + `§e[§c|§6|§7||||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent >= 0:
-                            titleActionbar = titleActionbar + `§e[§6|§7|||||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
-                            break;
-                        case percent < 0:
-                            titleActionbar = titleActionbar + `§e[§7||||||||||||||||||||§e] §c0.00%`
-                            break;
-                    }
-                } else if (playerList[i].hasTag("ShowOxygen3")) {
-                    titleActionbar = titleActionbar + `§l§e${GetScore("oxygen",playerList[i].nameTag)}/${equLevelData[GetScore("equLevel",playerList[i].nameTag)].max}`
-                } else if (playerList[i].hasTag("ShowOxygen4")) {
-                    titleActionbar = titleActionbar + `§l§e${(percent * 100).toFixed(2)}%`
-                }
-            }
-            if (playerList[i].hasTag("ShowMoney")) {
-                titleActionbar = titleActionbar + "§r §f能源币：§e§l" + GetScore("money",playerList[i].nameTag)
-            }
-            if (playerList[i].hasTag("ShowTime")) {
-                titleActionbar = titleActionbar + "§r §f在线时间：§e§l" + GetScore("time",playerList[i].nameTag)
-            }
-            if (playerList[i].hasTag("ShowRN")) {
-                titleActionbar = titleActionbar + "§r §f物价指数：§e§l" + GetScore("DATA","RN") / 100
-            }
-            if (GetScore("oxygen",playerList[i].nameTag) <= 200 && GetScore("oxygen",playerList[i].nameTag) > 0) {
-                titleActionbar = titleActionbar + "§r\n§c§l您即将进入缺氧状态，请及时补充氧气！"
-            }
-            if (GetScore("AnoxicTime",playerList[i].nameTag) > 0) {
-                titleActionbar = titleActionbar + "§r\n§c§l⚠警告！您已经进入缺氧状态 " + GetScore("AnoxicTime",playerList[i].nameTag) + " 秒，请及时补充氧气否则将会死亡！"
-            }
-            RunCmd(`title @a[name=${playerList[i].nameTag}] actionbar ${titleActionbar}`)
-        }
-    }
+    // let titleActionbar = "";
+    // for(let i = 0; i < playerList.length; i++) {
+    //     //这里控制玩家氧气值不超过100%
+    //     if (GetScore("oxygen",playerList[i].nameTag) > equLevelData[GetScore("equLevel",playerList[i].nameTag)].max) {
+    //         RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] oxygen ${equLevelData[GetScore("equLevel",playerList[i].nameTag)].max}`)
+    //     }
+    //     //这里控制玩家氧气值不低于0
+    //     if (GetScore("oxygen",playerList[i].nameTag) < 0) {
+    //         RunCmd(`scoreboard players set @a[name="${playerList[i].nameTag}"] oxygen 0`)
+    //     }
+    //     //这里控制玩家标题栏
+    //     // if(playerList[i].hasTag("ShowActionbar")) {
+    //     //     //
+    //     //     if (playerList[i].hasTag("ShowOxygenName")) {
+    //     //         titleActionbar = "氧气值："
+    //     //     }
+    //     //     //
+    //     //     if (playerList[i].hasTag("ShowOxygen1") || playerList[i].hasTag("ShowOxygen2") || playerList[i].hasTag("ShowOxygen3") || playerList[i].hasTag("ShowOxygen4")) {
+    //     //         let percent = (GetScore("oxygen",playerList[i].nameTag) / equLevelData[GetScore("equLevel",playerList[i].nameTag)].max)
+    //     //         if (playerList[i].hasTag("ShowOxygen1")) {
+    //     //             switch (true) {
+    //     //                 case percent >= 1:
+    //     //                     titleActionbar = titleActionbar + "§e[§a||||||||||||||||||||§6100.00%§e]"
+    //     //                     break;
+    //     //                 case percent >= 0.95:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||||||||||§6${(percent * 100).toFixed(2)}%§7§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.9:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||||||||||§6${(percent * 100).toFixed(2)}%§7|§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.85:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||||||||§6${(percent * 100).toFixed(2)}%§7||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.8:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||||||||§6${(percent * 100).toFixed(2)}%§7|||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.75:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||||||§6${(percent * 100).toFixed(2)}%§7||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.7:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||||||§6${(percent * 100).toFixed(2)}%§7|||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.65:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||||§6${(percent * 100).toFixed(2)}%§7||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.6:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||||§6${(percent * 100).toFixed(2)}%§7|||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.55:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||§6${(percent * 100).toFixed(2)}%§7||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.5:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||§6${(percent * 100).toFixed(2)}%§7|||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.45:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||§6${(percent * 100).toFixed(2)}%§7||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.4:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||§6${(percent * 100).toFixed(2)}%§7|||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.35:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||§6${(percent * 100).toFixed(2)}%§7||||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.3:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||§6${(percent * 100).toFixed(2)}%§7|||||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.25:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||§6${(percent * 100).toFixed(2)}%§7||||||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.2:
+    //     //                     titleActionbar = titleActionbar + `§e[§c||||§c${(percent * 100).toFixed(2)}%§7|||||||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.15:
+    //     //                     titleActionbar = titleActionbar + `§e[§c|||§c${(percent * 100).toFixed(2)}%§7||||||||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.1:
+    //     //                     titleActionbar = titleActionbar + `§e[§c||§c${(percent * 100).toFixed(2)}%§7|||||||||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0.05:
+    //     //                     titleActionbar = titleActionbar + `§e[§c|§c${(percent * 100).toFixed(2)}%§7||||||||||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent >= 0:
+    //     //                     titleActionbar = titleActionbar + `§e[§c${(percent * 100).toFixed(2)}%§7|||||||||||||||||||§e]`
+    //     //                     break;
+    //     //                 case percent < 0:
+    //     //                     titleActionbar = titleActionbar + `§e[§c0.00%§7|||||||||||||||||||§e]`
+    //     //                     break;
+    //     //             }
+    //     //         } else if (playerList[i].hasTag("ShowOxygen2")) {
+    //     //             switch (true) {
+    //     //                 case percent >= 1:
+    //     //                     titleActionbar = titleActionbar + "§e[§a||||||||||||||||||||§e] §6100.00%"
+    //     //                     break;
+    //     //                 case percent >= 0.95:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||||||||||§6|§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.9:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||||||||||§6|§7|§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.85:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||||||||§6|§7||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.8:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||||||||§6|§7|||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.75:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||||||§6|§7||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.7:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||||||§6|§7|||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.65:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||||§6|§7||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.6:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||||§6|§7|||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.55:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||||§6|§7||||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.5:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||||§6|§7|||||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.45:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||||§6|§7||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.4:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||||§6|§7|||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.35:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||||§6|§7||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.3:
+    //     //                     titleActionbar = titleActionbar + `§e[§a||||||§6|§7|||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.25:
+    //     //                     titleActionbar = titleActionbar + `§e[§a|||||§6|§7||||||||||||||§e] §6${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.2:
+    //     //                     titleActionbar = titleActionbar + `§e[§c||||§6|§7|||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.15:
+    //     //                     titleActionbar = titleActionbar + `§e[§c|||§6|§7||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.1:
+    //     //                     titleActionbar = titleActionbar + `§e[§c||§6|§7|||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0.05:
+    //     //                     titleActionbar = titleActionbar + `§e[§c|§6|§7||||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent >= 0:
+    //     //                     titleActionbar = titleActionbar + `§e[§6|§7|||||||||||||||||||§e] §c${(percent * 100).toFixed(2)}%`
+    //     //                     break;
+    //     //                 case percent < 0:
+    //     //                     titleActionbar = titleActionbar + `§e[§7||||||||||||||||||||§e] §c0.00%`
+    //     //                     break;
+    //     //             }
+    //     //         } else if (playerList[i].hasTag("ShowOxygen3")) {
+    //     //             titleActionbar = titleActionbar + `§l§e${GetScore("oxygen",playerList[i].nameTag)}/${equLevelData[GetScore("equLevel",playerList[i].nameTag)].max}`
+    //     //         } else if (playerList[i].hasTag("ShowOxygen4")) {
+    //     //             titleActionbar = titleActionbar + `§l§e${(percent * 100).toFixed(2)}%`
+    //     //         }
+    //     //     }
+    //     //     if (playerList[i].hasTag("ShowMoney")) {
+    //     //         titleActionbar = titleActionbar + "§r §f能源币：§e§l" + GetScore("money",playerList[i].nameTag)
+    //     //     }
+    //     //     if (playerList[i].hasTag("ShowTime")) {
+    //     //         titleActionbar = titleActionbar + "§r §f在线时间：§e§l" + GetScore("time",playerList[i].nameTag)
+    //     //     }
+    //     //     if (playerList[i].hasTag("ShowRN")) {
+    //     //         titleActionbar = titleActionbar + "§r §f物价指数：§e§l" + GetScore("DATA","RN") / 100
+    //     //     }
+    //     //     if (GetScore("oxygen",playerList[i].nameTag) <= 200 && GetScore("oxygen",playerList[i].nameTag) > 0) {
+    //     //         titleActionbar = titleActionbar + "§r\n§c§l您即将进入缺氧状态，请及时补充氧气！"
+    //     //     }
+    //     //     if (GetScore("oxygen",playerList[i].nameTag) <= 200 && GetScore("oxygen",playerList[i].nameTag) > 0) {
+    //     //         titleActionbar = titleActionbar + "§r\n§c§l您即将进入缺氧状态，请及时补充氧气！"
+    //     //     }
+    //     //     if (playerList[i].dimension.id == "minecraft:nether" && GetScore("equLevel",playerList[i].nameTag) <= 8) {
+    //     //         titleActionbar = titleActionbar + "§r\n§c§l⚠警告！您目前呼吸装备等级过低，氧气消耗速度是原有的1倍！"
+    //     //     }
+    //     //     if (playerList[i].dimension.id == "minecraft:the_end" && GetScore("equLevel",playerList[i].nameTag) <= 13) {
+    //     //         titleActionbar = titleActionbar + "§r\n§c§l⚠警告！您目前呼吸装备等级过低，氧气消耗速度是原有的2倍！"
+    //     //     }
+    //     //     RunCmd(`title @a[name=${playerList[i].nameTag}] actionbar ${titleActionbar}`)
+    //     // }
+    // }
 })
+
