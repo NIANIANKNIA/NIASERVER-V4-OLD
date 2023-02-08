@@ -8,19 +8,16 @@
 
 **本服务器对服务器性能有一定的要求，请谨慎使用！**
 
+部分LiteLoader插件可以点击前往 @jiansyuan 查看
+
+[点击链接跳转](https://github.com/jiansyuan/NIAServerPlugin)
+
 ### 部分文件夹说明
 
 - Addons文件夹 存储了服务器所使用的附加包的相关文件（包括行为包、资源包）
 - Addons/Behavior Packs文件夹 存储了服务器所使用的行为包的相关文件
 - Addons/Resourcee Packs文件夹 存储了服务器所使用的资源包的相关文件
-- Map文件夹 存储了服务器所使用的地图相关文件
-- Plugins文件夹 存储了服务器所使用的插件
-
-*地图由于涉及部分版权问题暂时不公开！
-
-### 如何使用
-
-由于当前服务器仍处于开发状态中，故暂时不提供使用方法
+- plugins文件夹 存储了服务器所使用的插件
 
 ### 特别鸣谢
 
@@ -31,6 +28,8 @@
 ### 服务器开发者名单 （排名不分先后）
 
 @NIANIANKNIA
+
+@jiansyuan
 
 @sliverplus
 
