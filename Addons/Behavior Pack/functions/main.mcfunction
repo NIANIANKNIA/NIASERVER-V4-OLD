@@ -8,14 +8,6 @@ title @a[tag=CringIsland,scores={c_time=100}] subtitle §7请稍等，如果生�
 tag @a[scores={c_time=200..}] remove CringIsland
 scoreboard players set @a[scores={c_time=200..}] c_time 0
 
-tag @a add dying
-tag @e[type=player] add live
-tag @a[tag=dying,tag=!live,tag=!die] add died
-tag @a[tag=dying,tag=!live,tag=!die] add die
-tag @a remove dying
-tag @e[type=player] remove die
-tag @a remove live
-
 scoreboard players add @a miningTime 0
 tellraw @a[tag=enterMine,scores={miningTime=1..}] {"rawtext":[{"text":"§e>> 欢迎回来！本次进入不消耗体力哦！"}]}
 tp @a[tag=enterMine,scores={miningTime=1..}] 769 73 553

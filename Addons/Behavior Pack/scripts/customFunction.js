@@ -2,6 +2,11 @@ import {world,BlockLocation,Block, Player, EffectType} from '@minecraft/server';
 import {ActionFormData,ModalFormData,MessageFormData} from '@minecraft/server-ui'
 //一些自定义函数的注册
 
+export function log(info) {
+    console.warn(info)
+}
+
+
 /**
  * 将Msg消息广播至整个游戏
  * @param {string} Msg
@@ -42,6 +47,8 @@ export function AddScoreboard(scoreboardName,showName) {
     }
 }
 
+
+
 export function GetScore(scoreboardName,targets) {
     let Participants = world.scoreboard.getObjective(scoreboardName).getParticipants();
     let hasResult = false;
@@ -68,11 +75,7 @@ export function GetScore(scoreboardName,targets) {
 //     return sum-6.0;
 // }
 
-export function getNumberInNormalDistribution(mean,std_dev){
-    return mean+(randomNormalDistribution()*std_dev);
-}
-
-export function randomNormalDistribution(){
+function randomNormalDistribution(){
     var u=0.0, v=0.0, w=0.0, c=0.0;
     do{
         //获得两个（-1,1）的独立随机变量
@@ -86,4 +89,8 @@ export function randomNormalDistribution(){
     //当然，因为这个函数运行较快，也可以扔掉一个
     //return [u*c,v*c];
     return u*c;
+}
+
+export function getNumberInNormalDistribution(mean,std_dev){
+    return mean+(randomNormalDistribution()*std_dev);
 }

@@ -13,11 +13,14 @@ const AUTHOR = "NIANIANKNIA";
 const banlist_path = "./plugins/NiaServer/NBan.json"
 const banlog_path = "./logs/banLog.csv"
 
+var _VER = '1.9.1'
+var _BLACKBE_ADDRESS_PREFIX = "https://api.blackbe.work/openapi/v3/check/?"
+
 //插件日志消息标头
 
 logger.setTitle(`${PLUGIN_NAME}`);
 logger.setConsole(true, 4);
-log("NBan--NIA服务器专业玩家封禁插件 加载成功！")
+log("NBan--NIA服务器专用玩家封禁插件 加载成功！")
 
 ll.registerPlugin(PLUGIN_NAME, PLUGIN_DESCRIPTION, VERSION, {"作者":AUTHOR});
 
@@ -30,9 +33,38 @@ if(!file.exists(banlog_path)) {
 }
 
 mc.listen("onJoin", player => {
-    log(`${player.realName} ip:${player.ip}`)
-    banlist = JSON.parse(File.readFrom(banlist_path));
+    //云黑判断
+    network.httpGet(_BLACKBE_ADDRESS_PREFIX + 'name=' + player.name + '&xuid=' + player.xuid, function (status, result) {
+        if (status != 200)
+            log('云黑检查失败！请检查你的网络连接。返回码：' + status);
+        else {
+            let res = JSON.parse(result);
+            if (!res.success)
+                log('云黑检查失败！错误码：' + res.status);
+            else if (res.status == 2000) {
+                setTimeout(function () {
+                    player.kick("§c§l很显然您在云黑黑名单之中！/n所以您无法进入本服务器游玩！");
+                }, 1);
+                log('发现玩家' + player.realName + '在BlackBe云端黑名单上，已断开连接！');
+                let record = res.data.info[0];
+                if(record)
+                {
+                    log('玩家违规等级：' + record.level);
+                    log('玩家违规原因：' + record.info);
+                }
+            }
+            else {
+                log('对玩家' + player.realName + '的云端黑名单检测通过。');
+            }
+        }
+    });
+    let banlist = JSON.parse(File.readFrom(banlist_path));
     let time = new Date();
+    let endMonth = "";
+    let endDate = "";
+    let endHour = "";
+    let endMinute = "";
+    let endSecond = "";
     time.setTime(new Date(system.getTimeStr()).getTime());
     if (time.getMonth() < 9) {
         endMonth = 1 + time.getMonth();
@@ -110,6 +142,11 @@ mc.listen("onJoin", player => {
             if (NowTime <= banlist[xuid].endTime) {
                 let time = new Date();
                 time.setTime(new Date(system.getTimeStr()).getTime());
+                let endMonth = "";
+                let endDate = "";
+                let endHour = "";
+                let endMinute = "";
+                let endSecond = "";
                 if (time.getMonth() < 9) {
                     endMonth = 1 + time.getMonth();
                     endMonth = "0" + endMonth;
@@ -161,6 +198,7 @@ mc.listen("onJoin", player => {
             }
             break;
         }
+
     }
 })
 
@@ -176,7 +214,7 @@ mc.listen("onServerStarted",function () {
             let banplayer = {};
             //获取玩家对象
             banplayer.banid = system.randomGuid();
-            banlist = JSON.parse(File.readFrom(banlist_path));
+            let banlist = JSON.parse(File.readFrom(banlist_path));
             banplayer.name = res.playername;
             let banpl = mc.getPlayer(res.playername);
             if (banpl == null) {
@@ -210,6 +248,11 @@ mc.listen("onServerStarted",function () {
             }
             if (res.bantime) {
                 let time = new Date();
+                let endMonth = "";
+                let endDate = "";
+                let endHour = "";
+                let endMinute = "";
+                let endSecond = "";
                 time.setTime(new Date(system.getTimeStr()).getTime());
                 if (time.getMonth() < 9) {
                     endMonth = 1 + time.getMonth();
@@ -269,6 +312,11 @@ mc.listen("onServerStarted",function () {
             } else {
                 let time = new Date();
                 time.setTime(new Date(system.getTimeStr()).getTime());
+                let endMonth = "";
+                let endDate = "";
+                let endHour = "";
+                let endMinute = "";
+                let endSecond = "";
                 if (time.getMonth() < 9) {
                     endMonth = 1 + time.getMonth();
                     endMonth = "0" + endMonth;
@@ -324,7 +372,7 @@ mc.listen("onServerStarted",function () {
     cmdunban.mandatory("playername", ParamType.RawText);
     cmdunban.overload(["playername"]);
     cmdunban.setCallback((cmdunban, origin, out, res) => {
-        banlist = JSON.parse(File.readFrom(banlist_path));
+        let banlist = JSON.parse(File.readFrom(banlist_path));
         let UNBANresult = false;
         for (let xuid in banlist) {
             if (banlist[xuid].name == res.playername) {

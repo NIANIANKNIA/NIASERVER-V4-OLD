@@ -62,7 +62,7 @@ const guiAPI = {
      */
      Sub(player,FileName) {
         if (FileName) {
-            Dates = JSON.parse(File.readFrom(FileName));
+            let Dates = JSON.parse(File.readFrom(FileName));
             let IDs = [];
             for (let id in Dates) {
                 if (id != "ID") {
@@ -98,7 +98,7 @@ const guiAPI = {
         let ChooseMenu = mc.newSimpleForm();
             ChooseMenu.setTitle("恢复掉落物");
             ChooseMenu.addButton("§c返回上一页");
-            num = 0
+            let num = 0
             for(let i in Dates) {
                 if (num == id) {
                     for(let m = 0 ; m < Dates[i].length ; m++) {
@@ -112,7 +112,7 @@ const guiAPI = {
                 if (date == null || date == 0) {
                     guiAPI.Sub(player,FileName);
                 } else {
-                    num = 0
+                    let num = 0
                     for(let i in Dates) {
                         if (num == id) {
                             for(let m = 0 ; m < Dates[i].length ; m++) {
@@ -131,10 +131,10 @@ const guiAPI = {
 
 function KillItem() {
     mc.broadcast("§e扫地完成！如果你东西被扫了，请及时截图！",5);
-    Items = [];
-    ItemsName = "";
-    entity = mc.getAllEntities();
-    result = false;
+    let Items = [];
+    let ItemsName = "";
+    let entity = mc.getAllEntities();
+    let result = false;
     for (let i = 0; i < entity.length; i++) {
         if (entity[i].isItemEntity()) {
             if (entity[i].toItem().name) {
@@ -145,9 +145,9 @@ function KillItem() {
         }
     };
     if(result) {
-        FileName = `${date_dir}${system.getTimeObj().Y}_${system.getTimeObj().M}_${system.getTimeObj().D}.json`;
-        ID = JSON.parse(File.readFrom(FileName)).ID + "\n" +system.getTimeStr();
-        Date = JSON.parse(File.readFrom(FileName));
+        let FileName = `${date_dir}${system.getTimeObj().Y}_${system.getTimeObj().M}_${system.getTimeObj().D}.json`;
+        let ID = JSON.parse(File.readFrom(FileName)).ID + "\n" +system.getTimeStr();
+        let Date = JSON.parse(File.readFrom(FileName));
         Date[ID] = Items;
         mc.broadcast("§c>> 本次清理的物品名称为：§r" + ItemsName);
         mc.runcmd("kill @e[type=item]");
@@ -161,7 +161,7 @@ function KillItem() {
 
 //扫地函数
 function Main() {
-    online = mc.getOnlinePlayers();
+    let online = mc.getOnlinePlayers();
     for (let i = 0; i < online.length; i++) {
         online[i].sendToast("§e扫地提醒","还有15s就要扫地了！请及时捡起地上的物品哦！")
     }
@@ -170,11 +170,15 @@ function Main() {
     setTimeout(`mc.broadcast("§e还有§c3s§e就要扫地了！请及时捡起地上的物品哦！",5);`,12000);
     setTimeout(`mc.broadcast("§e还有§c2s§e就要扫地了！请及时捡起地上的物品哦！",5);`,13000);
     setTimeout(`mc.broadcast("§e还有§c1s§e就要扫地了！请及时捡起地上的物品哦！",5);`,14000);
-    setTimeout(`KillItem()`,15000);
+    setTimeout(() => {
+        KillItem()
+    },15000);
 }
 
 //设置周期扫地程序
-setInterval(`Main()`,300000);
+setInterval(() => {
+    Main()
+},300000);
 
 //定时更新文件
 let lastDay = system.getTimeObj().D;
