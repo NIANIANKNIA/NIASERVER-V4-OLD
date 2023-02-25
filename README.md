@@ -1,6 +1,6 @@
 为了便于后续的开发与管理，本仓库暂时停用
 
-后续更新请前往(新的仓库)查看[https://github.com/NIANIANKNIA/NIASERVER-V4]
+后续更新请前往(新的仓库)[https://github.com/NIANIANKNIA/NIASERVER-V4]查看
 
 # NIA服务器v4.0--基岩版空岛服务器
 
